@@ -46,7 +46,11 @@
 // JustificationHeuristic stuff
 
 void JustificationHeuristic::setJustified(TNode n)
-{
+{ 
+  if(d_firstHitTimerRunning) {
+    d_firstHitTimeStat.stop();
+    d_firstHitTimerRunning = false;
+  }
   d_justified.insert(n);
 }
 

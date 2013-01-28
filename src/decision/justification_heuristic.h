@@ -57,6 +57,8 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   IntStat d_giveup;
   TimerStat d_timestat;
   TimerStat d_iteTimeStat;
+  TimerStat d_firstHitTimeStat;
+  bool d_firstHitTimerRunning;
 
   /**
    * A copy of the assertions that need to be justified
@@ -96,12 +98,15 @@ public:
     d_giveup("decision::jh::giveup", 0),
     d_timestat("decision::jh::time"),
     d_iteTimeStat("decision::jh::ite-time"),
+    d_firstHitTimeStat("decision::jh::firstHit-time"),
+    d_firstHitTimerRunning(false),
     d_assertions(uc),
     d_iteAssertions(uc) {
     StatisticsRegistry::registerStat(&d_helfulness);
     StatisticsRegistry::registerStat(&d_giveup);
     StatisticsRegistry::registerStat(&d_timestat);
     StatisticsRegistry::registerStat(&d_iteTimeStat);
+    StatisticsRegistry::registerStat(&d_firstHitTimeStat);
     Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
   ~JustificationHeuristic() {
@@ -109,10 +114,12 @@ public:
     StatisticsRegistry::unregisterStat(&d_giveup);
     StatisticsRegistry::unregisterStat(&d_timestat);
     StatisticsRegistry::unregisterStat(&d_iteTimeStat);
+    StatisticsRegistry::unregisterStat(&d_firstHitTimeStat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
     TimerStat::CodeTimer codeTimer(d_timestat);
+    d_firstHitTimeStat.start(); d_firstHitTimerRunning=true;
 
     d_visited.clear();
 
@@ -138,10 +145,18 @@ public:
       try {
         litDecision = findSplitter(d_assertions[i], desiredVal);
       }catch(GiveUpException &e) {
+        if(d_firstHitTimerRunning) {
+          d_firstHitTimeStat.stop();
+          d_firstHitTimerRunning = false;
+        }
         return prop::undefSatLiteral;
       }
 
       if(litDecision != undefSatLiteral) {
+        if(d_firstHitTimerRunning) {
+          d_firstHitTimeStat.stop();
+          d_firstHitTimerRunning = false;
+        }
         d_prvsIndex = i;
         return litDecision;
       }
@@ -169,6 +184,10 @@ public:
     // SAT solver can stop...
     stopSearch = true;
     d_decisionEngine->setResult(SAT_VALUE_TRUE);
+    if(d_firstHitTimerRunning) {
+      d_firstHitTimeStat.stop();
+      d_firstHitTimerRunning = false;
+    }
     return prop::undefSatLiteral;
   }
 
