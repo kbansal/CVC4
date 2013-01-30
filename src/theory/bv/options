@@ -6,7 +6,10 @@
 module BV "theory/bv/options.h" Bitvector theory
 
 option bitvectorEagerBitblast --bitblast-eager bool
- eagerly bitblast the bitvectors to the main SAT solver
+ eagerly bitblast the bitvectors to the main SAT solver when asserted to the theory solver
+
+option bitvectorEagerEagerBitblast --bitblast-eager-eager bool
+ eagerly bitblast the bitvectors to the main SAT solver when first seen 
 
 option bitvectorShareLemmas --bitblast-share-lemmas bool
  share lemmas from the bitblasting solver with the main solver

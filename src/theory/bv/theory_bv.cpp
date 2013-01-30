@@ -82,8 +82,15 @@ void TheoryBV::preRegisterTerm(TNode node) {
     return;
   }
 
+  // Pre-registration adds the
   d_bitblastSolver.preRegister(node);
-  d_equalitySolver.preRegister(node);
+
+  // If completely eager, blast it now
+  if (options::bitvectorEagerEagerBitblast()) {
+    d_bitblastSolver.bitBlastQueue();
+  } else {
+    d_equalitySolver.preRegister(node);
+  }
 }
 
 void TheoryBV::sendConflict() {
@@ -101,6 +108,11 @@ void TheoryBV::sendConflict() {
 void TheoryBV::check(Effort e)
 {
   Debug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
+
+  if (options::bitvectorEagerEagerBitblast()) {
+    // Everything should have been bit-blasted already
+    return;
+  }
 
   // if we are already in conflict just return the conflict
   if (inConflict()) {

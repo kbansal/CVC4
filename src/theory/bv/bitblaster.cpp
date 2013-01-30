@@ -99,11 +99,12 @@ void Bitblaster::bbAtom(TNode node) {
   // asserting that the atom is true iff the definition holds
   Node atom_definition = mkNode(kind::IFF, node, atom_bb);
 
-  if (!options::bitvectorEagerBitblast()) {
+  if (!options::bitvectorEagerBitblast() && !options::bitvectorEagerEagerBitblast()) {
     d_cnfStream->convertAndAssert(atom_definition, false, false);
     d_bitblastedAtoms.insert(node);
   } else {
     d_bvOutput->lemma(atom_definition, false);
+    d_bitblastedAtoms.insert(node);
   }
 }
 

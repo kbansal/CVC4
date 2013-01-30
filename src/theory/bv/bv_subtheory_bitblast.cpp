@@ -62,6 +62,14 @@ void BitblastSolver::explain(TNode literal, std::vector<TNode>& assumptions) {
   d_bitblaster->explain(literal, assumptions);
 }
 
+void BitblastSolver::bitBlastQueue() {
+  while (!d_bitblastQueue.empty()) {
+    TNode atom = d_bitblastQueue.front();
+    d_bitblaster->bbAtom(atom);
+    d_bitblastQueue.pop();
+  }
+}
+
 bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory::Effort e) {
   Debug("bitvector::bitblaster") << "BitblastSolver::addAssertions (" << e << ")" << std::endl;
 
@@ -79,11 +87,7 @@ bool BitblastSolver::addAssertions(const std::vector<TNode>& assertions, Theory:
   //// Lazy bit-blasting
 
   // bit-blast enqueued nodes
-  while (!d_bitblastQueue.empty()) {
-    TNode atom = d_bitblastQueue.front();
-    d_bitblaster->bbAtom(atom);
-    d_bitblastQueue.pop();
-  }
+  bitBlastQueue();
 
   // propagation
   for (unsigned i = 0; i < assertions.size(); ++i) {
