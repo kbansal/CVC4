@@ -56,6 +56,7 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   IntStat d_helfulness;
   IntStat d_giveup;
   TimerStat d_timestat;
+  TimerStat d_iteTimeStat;
 
   /**
    * A copy of the assertions that need to be justified
@@ -94,17 +95,20 @@ public:
     d_helfulness("decision::jh::helpfulness", 0),
     d_giveup("decision::jh::giveup", 0),
     d_timestat("decision::jh::time"),
+    d_iteTimeStat("decision::jh::ite-time"),
     d_assertions(uc),
     d_iteAssertions(uc) {
     StatisticsRegistry::registerStat(&d_helfulness);
     StatisticsRegistry::registerStat(&d_giveup);
     StatisticsRegistry::registerStat(&d_timestat);
+    StatisticsRegistry::registerStat(&d_iteTimeStat);
     Trace("decision") << "Justification heuristic enabled" << std::endl;
   }
   ~JustificationHeuristic() {
     StatisticsRegistry::unregisterStat(&d_helfulness);
     StatisticsRegistry::unregisterStat(&d_giveup);
     StatisticsRegistry::unregisterStat(&d_timestat);
+    StatisticsRegistry::unregisterStat(&d_iteTimeStat);
   }
   prop::SatLiteral getNext(bool &stopSearch) {
     Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;

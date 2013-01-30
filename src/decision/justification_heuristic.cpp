@@ -86,6 +86,7 @@ void JustificationHeuristic::computeITEs(TNode n, IteList &l)
 
 const JustificationHeuristic::IteList& JustificationHeuristic::getITEs(TNode n)
 {
+  TimerStat::CodeTimer codeTimer(d_iteTimeStat);
   IteCache::iterator it = d_iteCache.find(n);
   if(it != d_iteCache.end()) {
     return it->second;
