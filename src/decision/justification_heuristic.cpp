@@ -44,7 +44,9 @@ JustificationHeuristic::JustificationHeuristic(CVC4::DecisionEngine* de,
   d_iteCache(uc),
   d_visited(),
   d_visitedComputeITE(),
-  d_curDecision() {
+  d_curDecision(),
+  d_curThreshold(0),
+  d_childCache(uc) {
   StatisticsRegistry::registerStat(&d_helfulness);
   StatisticsRegistry::registerStat(&d_giveup);
   StatisticsRegistry::registerStat(&d_timestat);
@@ -228,6 +230,34 @@ void JustificationHeuristic::setPrvsIndex(int prvsIndex)
     d_threshPrvsIndex = prvsIndex;
 }
 
+DecisionWeight JustificationHeuristic::getWeight(TNode n) {
+  if(options::decisionRandomWeight() != 0 &&
+     !n.hasAttribute(theory::DecisionWeightAttr())) {
+    n.setAttribute(theory::DecisionWeightAttr(), rand() % options::decisionRandomWeight());
+  }
+  return n.getAttribute(theory::DecisionWeightAttr());
+}
+
+bool JustificationHeuristic::compareByWeight(TNode n1, TNode n2)
+{
+  return getWeight(n1) < getWeight(n2);
+}
+
+typedef vector<TNode> ChildList;
+TNode JustificationHeuristic::getChildByWeight(TNode n, int i) {
+  if(options::decisionUseWeight()) {
+    // TODO: Optimize storing & access
+    if(d_childCache.find(n) == d_childCache.end()) {
+      ChildList list = ChildList(n.begin(), n.end());
+      std::sort(list.begin(), list.end(), JustificationHeuristic::compareByWeight);
+      d_childCache[n] = list;
+    }
+    return d_childCache[n].get()[i];
+  } else {
+    return n[i];
+  }
+}
+
 SatValue JustificationHeuristic::tryGetSatValue(Node n)
 {
   Debug("decision") << "   "  << n << " has sat value " << " ";
@@ -348,7 +378,7 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
     } 
     else {
       Assert(d_decisionEngine->hasSatLiteral(node));
-      if(d_curThreshold != 0 && d_decisionEngine->getWeight(node) >= d_curThreshold)
+      if(d_curThreshold != 0 && getWeight(node) >= d_curThreshold)
         return false;
       SatVariable v =
         d_decisionEngine->getSatLiteral(node).getSatVariable();
@@ -424,9 +454,11 @@ bool JustificationHeuristic::handleAndOrEasy(TNode node,
 
   int numChildren = node.getNumChildren();
   SatValue desiredValInverted = invertValue(desiredVal);
-  for(int i = 0; i < numChildren; ++i)
-    if ( tryGetSatValue(node[i]) != desiredValInverted )
-      return findSplitterRec(node[i], desiredVal);
+  for(int i = 0; i < numChildren; ++i) {
+    TNode curNode = getChildByWeight(node, i);
+    if ( tryGetSatValue(curNode) != desiredValInverted )
+      return findSplitterRec(curNode, desiredVal);
+  }
   Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
   return false;
 }
@@ -437,9 +469,11 @@ bool JustificationHeuristic::handleAndOrHard(TNode node,
           (node.getKind() == kind::OR  and desiredVal == SAT_VALUE_FALSE) );
 
   int numChildren = node.getNumChildren();
-  for(int i = 0; i < numChildren; ++i)
-    if (findSplitterRec(node[i], desiredVal))
+  for(int i = 0; i < numChildren; ++i) {
+    TNode curNode = getChildByWeight(node, i);
+    if (findSplitterRec(curNode, desiredVal))
       return true;
+  }
   return false;
 }
 
@@ -448,10 +482,10 @@ bool JustificationHeuristic::handleBinaryEasy(TNode node1,
                                               TNode node2,
                                               SatValue desiredVal2)
 {
-/*  if(getWeight(node1) < getWeight(node2)) {
+  if(options::decisionUseWeight() && getWeight(node1) > getWeight(node2)) {
     swap(node1, node2);
     swap(desiredVal1, desiredVal2);
-  }*/
+  }
 
   if ( tryGetSatValue(node1) != invertValue(desiredVal1) )
     return findSplitterRec(node1, desiredVal1);
@@ -466,10 +500,10 @@ bool JustificationHeuristic::handleBinaryHard(TNode node1,
                                               TNode node2,
                                               SatValue desiredVal2)
 {
-/*  if(getWeight(node1) < getWeight(node2)) {
+  if(options::decisionUseWeight() && getWeight(node1) > getWeight(node2)) {
     swap(node1, node2);
-    swap(desiredVal1, desiredVal2)
-  }*/
+    swap(desiredVal1, desiredVal2);
+  }
 
   if( findSplitterRec(node1, desiredVal1) )
     return true;
@@ -486,10 +520,24 @@ bool JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
   if (ifVal == SAT_VALUE_UNKNOWN) {
       
     // are we better off trying false? if not, try true [CHOICE]
-    SatValue ifDesiredVal = 
-      (tryGetSatValue(node[2]) == desiredVal ||
+     /* (tryGetSatValue(node[2]) == desiredVal ||
        tryGetSatValue(node[1]) == invertValue(desiredVal))
-      ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;
+      ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;*/
+
+    SatValue trueChildVal = tryGetSatValue(node[1]);
+    SatValue falseChildVal = tryGetSatValue(node[2]);
+    SatValue ifDesiredVal;
+
+    if(trueChildVal == desiredVal || falseChildVal == invertValue(desiredVal)) {
+      ifDesiredVal = SAT_VALUE_TRUE;
+    } else if(trueChildVal == invertValue(desiredVal) ||
+              falseChildVal == desiredVal ||
+              (options::decisionUseWeight() && getWeight(node[1]) > getWeight(node[2]))
+              ) {
+      ifDesiredVal = SAT_VALUE_FALSE;
+    } else {
+      ifDesiredVal = SAT_VALUE_TRUE;
+    }
 
     if(findSplitterRec(node[0], ifDesiredVal)) return true;
     

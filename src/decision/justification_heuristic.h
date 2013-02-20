@@ -39,6 +39,8 @@ namespace decision {
 class JustificationHeuristic : public ITEDecisionStrategy {
   typedef std::vector<pair<TNode,TNode> > IteList;
   typedef context::CDHashMap<TNode,IteList,TNodeHashFunction> IteCache;
+  typedef std::vector<TNode> ChildList;
+  typedef context::CDHashMap<TNode,ChildList,TNodeHashFunction> ChildCache;
   typedef context::CDHashMap<TNode,TNode,TNodeHashFunction> SkolemMap;
 
   // being 'justified' is monotonic with respect to decisions
@@ -84,6 +86,9 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   SatLiteral d_curDecision;
   /** current threshold for the recursive call */
   DecisionWeight d_curThreshold;
+
+  /** child cache */
+  ChildCache d_childCache;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de,
                          context::UserContext *uc,
@@ -111,10 +116,12 @@ private:
   /* Helper functions */
   void setJustified(TNode);
   bool checkJustified(TNode);
-  int  getWeight(TNode);
   void setPrvsIndex(int);
   int  getPrvsIndex();
-  
+  static DecisionWeight getWeight(TNode);
+  static bool compareByWeight(TNode, TNode);
+  TNode getChildByWeight(TNode n, int i);
+
   /* If literal exists corresponding to the node return
      that. Otherwise an UNKNOWN */
   SatValue tryGetSatValue(Node n);
