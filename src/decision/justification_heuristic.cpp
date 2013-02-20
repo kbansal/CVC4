@@ -22,6 +22,7 @@
 #include "expr/node_manager.h"
 #include "expr/kind.h"
 #include "theory/rewriter.h"
+#include "decision/options.h"
 #include "util/ite_removal.h"
 
 
@@ -32,7 +33,9 @@ JustificationHeuristic::JustificationHeuristic(CVC4::DecisionEngine* de,
                                                context::Context *c):
   ITEDecisionStrategy(de, c),
   d_justified(c),
+  d_threshJustified(c),
   d_prvsIndex(c, 0),
+  d_threshPrvsIndex(c, 0),
   d_helfulness("decision::jh::helpfulness", 0),
   d_giveup("decision::jh::giveup", 0),
   d_timestat("decision::jh::time"),
@@ -54,11 +57,26 @@ JustificationHeuristic::~JustificationHeuristic() {
   StatisticsRegistry::unregisterStat(&d_timestat);
 }
 
-CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch) {
-  Trace("decision") << "JustificationHeuristic::getNext()" << std::endl;
+CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch)
+{
+  if(options::decisionThreshold() > 0) {
+    bool stopSearchTmp = false;
+    SatLiteral lit = getNextThresh(stopSearchTmp, options::decisionThreshold());
+    if(lit != undefSatLiteral) {
+       Assert(stopSearchTmp == false);
+       return lit;
+    }
+    Assert(stopSearchTmp == true);
+  }
+  return getNextThresh(stopSearch, 0);
+}
+
+CVC4::prop::SatLiteral JustificationHeuristic::getNextThresh(bool &stopSearch, DecisionWeight threshold) {
+  Trace("decision") << "JustificationHeuristic::getNextThresh(stopSearch, "<<threshold<<")" << std::endl;
   TimerStat::CodeTimer codeTimer(d_timestat);
 
   d_visited.clear();
+  d_curThreshold = threshold;
 
   if(Trace.isOn("justified")) {
     for(JustifiedSet::key_iterator i = d_justified.key_begin();
@@ -71,7 +89,7 @@ CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch) {
     }
   }
 
-  for(unsigned i = d_prvsIndex; i < d_assertions.size(); ++i) {
+  for(unsigned i = getPrvsIndex(); i < d_assertions.size(); ++i) {
     Debug("decision") << "---" << std::endl << d_assertions[i] << std::endl;
 
     // Sanity check: if it was false, aren't we inconsistent?
@@ -83,7 +101,7 @@ CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch) {
     litDecision = findSplitter(d_assertions[i], desiredVal);
 
     if(litDecision != undefSatLiteral) {
-      d_prvsIndex = i;
+      setPrvsIndex(i);
       return litDecision;
     }
   }
@@ -109,7 +127,8 @@ CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch) {
 
   // SAT solver can stop...
   stopSearch = true;
-  d_decisionEngine->setResult(SAT_VALUE_TRUE);
+  if(d_curThreshold == 0)
+    d_decisionEngine->setResult(SAT_VALUE_TRUE);
   return prop::undefSatLiteral;
 }
 
@@ -179,12 +198,34 @@ SatLiteral JustificationHeuristic::findSplitter(TNode node,
 
 void JustificationHeuristic::setJustified(TNode n)
 {
-  d_justified.insert(n);
+  if(d_curThreshold == 0)
+    d_justified.insert(n);
+  else
+    d_threshJustified.insert(n);
 }
 
 bool JustificationHeuristic::checkJustified(TNode n)
 {
-  return d_justified.find(n) != d_justified.end();
+  if(d_curThreshold == 0)
+    return d_justified.find(n) != d_justified.end();
+  else
+    return d_threshJustified.find(n) != d_threshJustified.end();
+}
+
+int JustificationHeuristic::getPrvsIndex()
+{
+  if(d_curThreshold == 0)
+    return d_prvsIndex;
+  else
+    return d_threshPrvsIndex;
+}
+
+void JustificationHeuristic::setPrvsIndex(int prvsIndex)
+{
+  if(d_curThreshold == 0)
+    d_prvsIndex = prvsIndex;
+  else
+    d_threshPrvsIndex = prvsIndex;
 }
 
 SatValue JustificationHeuristic::tryGetSatValue(Node n)
@@ -307,7 +348,9 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
     } 
     else {
       Assert(d_decisionEngine->hasSatLiteral(node));
-      SatVariable v = 
+      if(d_curThreshold != 0 && d_decisionEngine->getWeight(node) >= d_curThreshold)
+        return false;
+      SatVariable v =
         d_decisionEngine->getSatLiteral(node).getSatVariable();
       d_curDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
       return true;
@@ -366,7 +409,7 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
   }//end of switch(k)
 
   if(ret == false) {
-    Assert(litPresent == false || litVal ==  desiredVal,
+    Assert( not(d_curThreshold == 0) or (litPresent == false || litVal ==  desiredVal),
            "Output should be justified");
     setJustified(node);
   }
@@ -384,7 +427,7 @@ bool JustificationHeuristic::handleAndOrEasy(TNode node,
   for(int i = 0; i < numChildren; ++i)
     if ( tryGetSatValue(node[i]) != desiredValInverted )
       return findSplitterRec(node[i], desiredVal);
-  Assert(false, "handleAndOrEasy: No controlling input found");
+  Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
   return false;
 }
 
@@ -405,11 +448,16 @@ bool JustificationHeuristic::handleBinaryEasy(TNode node1,
                                               TNode node2,
                                               SatValue desiredVal2)
 {
+/*  if(getWeight(node1) < getWeight(node2)) {
+    swap(node1, node2);
+    swap(desiredVal1, desiredVal2);
+  }*/
+
   if ( tryGetSatValue(node1) != invertValue(desiredVal1) )
     return findSplitterRec(node1, desiredVal1);
   if ( tryGetSatValue(node2) != invertValue(desiredVal2) )
     return findSplitterRec(node2, desiredVal2);
-  Assert(false, "handleBinaryEasy: No controlling input found");
+  Assert(d_curThreshold != 0, "handleBinaryEasy: No controlling input found");
   return false;
 }
 
@@ -418,6 +466,11 @@ bool JustificationHeuristic::handleBinaryHard(TNode node1,
                                               TNode node2,
                                               SatValue desiredVal2)
 {
+/*  if(getWeight(node1) < getWeight(node2)) {
+    swap(node1, node2);
+    swap(desiredVal1, desiredVal2)
+  }*/
+
   if( findSplitterRec(node1, desiredVal1) )
     return true;
   return findSplitterRec(node2, desiredVal2);
@@ -440,7 +493,7 @@ bool JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
 
     if(findSplitterRec(node[0], ifDesiredVal)) return true;
     
-    Assert(false, "No controlling input found (6)");
+    Assert(d_curThreshold != 0, "No controlling input found (6)");
   } else {
     // Try to justify 'if'
     if(findSplitterRec(node[0], ifVal)) return true;

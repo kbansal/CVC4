@@ -44,7 +44,9 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   // being 'justified' is monotonic with respect to decisions
   typedef context::CDHashSet<Node,NodeHashFunction> JustifiedSet;
   JustifiedSet d_justified;
+  JustifiedSet d_threshJustified;
   context::CDO<unsigned>  d_prvsIndex;
+  context::CDO<unsigned>  d_threshPrvsIndex;
 
   IntStat d_helfulness;
   IntStat d_giveup;
@@ -80,6 +82,8 @@ class JustificationHeuristic : public ITEDecisionStrategy {
 
   /** current decision for the recursive call */
   SatLiteral d_curDecision;
+  /** current threshold for the recursive call */
+  DecisionWeight d_curThreshold;
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de,
                          context::UserContext *uc,
@@ -94,6 +98,9 @@ public:
                      IteSkolemMap iteSkolemMap);
 
 private:
+  /* getNext with an option to specify threshold */
+  prop::SatLiteral getNextThresh(bool &stopSearch, DecisionWeight threshold);
+
   SatLiteral findSplitter(TNode node, SatValue desiredVal);
   
   /** 
@@ -104,6 +111,9 @@ private:
   /* Helper functions */
   void setJustified(TNode);
   bool checkJustified(TNode);
+  int  getWeight(TNode);
+  void setPrvsIndex(int);
+  int  getPrvsIndex();
   
   /* If literal exists corresponding to the node return
      that. Otherwise an UNKNOWN */

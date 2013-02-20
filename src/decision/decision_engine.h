@@ -214,11 +214,11 @@ public:
   Node getNode(SatLiteral l) {
     return d_cnfStream->getNode(l);
   }
-  uint64_t getWeight(TNode n) {
+  DecisionWeight getWeight(TNode n) {
     if(!n.hasAttribute(theory::DecisionWeightAttr())) {
       n.setAttribute(theory::DecisionWeightAttr(), (uint64_t)rand());
     }
-    return  n.getAttribute(theory::DecisionWeightAttr());
+    return n.getAttribute(theory::DecisionWeightAttr());
   }
 
 private:
