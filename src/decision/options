@@ -20,4 +20,6 @@ option decisionMustRelevancy bool
 # only use DE to determine when to stop, not to make decisions
 option decisionStopOnly bool
 
+option decisionThreshold --decision-threshold=N decision::DecisionWeight :default 0 :include "theory/decision_attributes.h"
+
 endmodule
