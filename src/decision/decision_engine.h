@@ -1,4 +1,4 @@
-/*********************                                                        */
+
 /*! \file decision_engine.h
  ** \verbatim
  ** Original author: Kshitij Bansal
@@ -27,6 +27,7 @@
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "prop/sat_solver_types.h"
+#include "theory/decision_attributes.h"
 #include "util/ite_removal.h"
 #include "util/output.h"
 
@@ -212,6 +213,12 @@ public:
   }
   Node getNode(SatLiteral l) {
     return d_cnfStream->getNode(l);
+  }
+  uint64_t getWeight(TNode n) {
+    if(!n.hasAttribute(theory::DecisionWeightAttr())) {
+      n.setAttribute(theory::DecisionWeightAttr(), (uint64_t)rand());
+    }
+    return  n.getAttribute(theory::DecisionWeightAttr());
   }
 
 private:
