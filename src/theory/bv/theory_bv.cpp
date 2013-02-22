@@ -150,6 +150,7 @@ void TheoryBV::propagate(Effort e) {
     TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
     // temporary fix for incremental bit-blasting 
     if (d_valuation.isSatLiteral(literal)) {
+      Debug("bitvector::propagate") << "TheoryBV:: propagating " << literal <<"\n"; 
       ok = d_out->propagate(literal);
     }
   }

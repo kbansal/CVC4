@@ -164,6 +164,7 @@ public:
   }
 
   bool isSharedTerm(TNode node);
+  uint64_t computeAtomWeight(TNode node);
 private:
 
   

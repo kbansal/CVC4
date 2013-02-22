@@ -457,10 +457,11 @@ bool JustificationHeuristic::handleAndOrEasy(TNode node,
   for(int i = 0; i < numChildren; ++i) {
     TNode curNode = getChildByWeight(node, i);
     if ( tryGetSatValue(curNode) != desiredValInverted )
-      return findSplitterRec(curNode, desiredVal);
+      if(findSplitterRec(curNode, desiredVal))
+        return true;
   }
-  Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
   return false;
+  // Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
 }
 
 bool JustificationHeuristic::handleAndOrHard(TNode node,
@@ -488,10 +489,12 @@ bool JustificationHeuristic::handleBinaryEasy(TNode node1,
   }
 
   if ( tryGetSatValue(node1) != invertValue(desiredVal1) )
-    return findSplitterRec(node1, desiredVal1);
+    if(findSplitterRec(node1, desiredVal1))
+      return true;
   if ( tryGetSatValue(node2) != invertValue(desiredVal2) )
-    return findSplitterRec(node2, desiredVal2);
-  Assert(d_curThreshold != 0, "handleBinaryEasy: No controlling input found");
+    if(findSplitterRec(node2, desiredVal2))
+      return true;
+  // Assert(d_curThreshold != 0, "handleBinaryEasy: No controlling input found");
   return false;
 }
 
