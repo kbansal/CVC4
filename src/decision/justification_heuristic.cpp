@@ -33,7 +33,7 @@ JustificationHeuristic::JustificationHeuristic(CVC4::DecisionEngine* de,
                                                context::Context *c):
   ITEDecisionStrategy(de, c),
   d_justified(c),
-  d_threshJustified(c),
+  d_exploredThreshold(c),
   d_prvsIndex(c, 0),
   d_threshPrvsIndex(c, 0),
   d_helfulness("decision::jh::helpfulness", 0),
@@ -124,7 +124,7 @@ CVC4::prop::SatLiteral JustificationHeuristic::getNextThresh(bool &stopSearch, D
                           << d_assertions[i] << std::endl;
     }
   }
-  Assert(alljustified);
+  Assert(alljustified || d_curThreshold != 0);
 #endif
 
   // SAT solver can stop...
@@ -200,18 +200,24 @@ SatLiteral JustificationHeuristic::findSplitter(TNode node,
 
 void JustificationHeuristic::setJustified(TNode n)
 {
-  if(d_curThreshold == 0)
-    d_justified.insert(n);
-  else
-    d_threshJustified.insert(n);
+  d_justified.insert(n);
 }
 
 bool JustificationHeuristic::checkJustified(TNode n)
 {
-  if(d_curThreshold == 0)
-    return d_justified.find(n) != d_justified.end();
-  else
-    return d_threshJustified.find(n) != d_threshJustified.end();
+  return d_justified.find(n) != d_justified.end();
+}
+
+DecisionWeight JustificationHeuristic::getExploredThreshold(TNode n)
+{
+  return
+    d_exploredThreshold.find(n) == d_exploredThreshold.end() ?
+    numeric_limits<DecisionWeight>::max() : d_exploredThreshold[n];
+}
+
+void JustificationHeuristic::setExploredThreshold(TNode n)
+{
+  d_exploredThreshold[n] = d_curThreshold;
 }
 
 int JustificationHeuristic::getPrvsIndex()
@@ -304,8 +310,8 @@ void JustificationHeuristic::computeITEs(TNode n, IteList &l)
   }
 }
 
-bool JustificationHeuristic::findSplitterRec(TNode node, 
-                                             SatValue desiredVal)
+JustificationHeuristic::SearchResult
+JustificationHeuristic::findSplitterRec(TNode node, SatValue desiredVal)
 {
   /**
    * Main idea
@@ -329,7 +335,12 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
   /* Base case */
   if (checkJustified(node)) {
     Debug("decision::jh") << "  justified, returning" << std::endl; 
-    return false;
+    return NO_SPLITTER;
+  }
+  if (getExploredThreshold(node) < d_curThreshold) {
+    Debug("decision::jh") << "  explored, returning" << std::endl;
+    Assert(d_curThreshold != 0);
+    return DONT_KNOW;
   }
 
 #if defined CVC4_ASSERTIONS || defined CVC4_DEBUG
@@ -369,25 +380,25 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
   if(tId != theory::THEORY_BOOL) {
 
     // if node has embedded ites, resolve that first
-    if(handleEmbeddedITEs(node))
-      return true;
+    if(handleEmbeddedITEs(node) == FOUND_SPLITTER)
+      return FOUND_SPLITTER;
 
     if(litVal != SAT_VALUE_UNKNOWN) {
       setJustified(node);
-      return false;
+      return NO_SPLITTER;
     } 
     else {
       Assert(d_decisionEngine->hasSatLiteral(node));
       if(d_curThreshold != 0 && getWeight(node) >= d_curThreshold)
-        return false;
+        return DONT_KNOW;
       SatVariable v =
         d_decisionEngine->getSatLiteral(node).getSatVariable();
       d_curDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
-      return true;
+      return FOUND_SPLITTER;
     }
   }
 
-  bool ret = false;
+  SearchResult ret = NO_SPLITTER;
   switch (k) {
 
   case kind::CONST_BOOLEAN:
@@ -438,16 +449,20 @@ bool JustificationHeuristic::findSplitterRec(TNode node,
     break;
   }//end of switch(k)
 
-  if(ret == false) {
-    Assert( not(d_curThreshold == 0) or (litPresent == false || litVal ==  desiredVal),
+  if(ret == DONT_KNOW) {
+    setExploredThreshold(node);
+  }
+
+  if(ret == NO_SPLITTER) {
+    Assert( litPresent == false || litVal ==  desiredVal,
            "Output should be justified");
     setJustified(node);
   }
   return ret;
 }/* findRecSplit method */
 
-bool JustificationHeuristic::handleAndOrEasy(TNode node,
-                                             SatValue desiredVal)
+JustificationHeuristic::SearchResult
+JustificationHeuristic::handleAndOrEasy(TNode node, SatValue desiredVal)
 {
   Assert( (node.getKind() == kind::AND and desiredVal == SAT_VALUE_FALSE) or 
           (node.getKind() == kind::OR  and desiredVal == SAT_VALUE_TRUE) );
@@ -456,29 +471,34 @@ bool JustificationHeuristic::handleAndOrEasy(TNode node,
   SatValue desiredValInverted = invertValue(desiredVal);
   for(int i = 0; i < numChildren; ++i) {
     TNode curNode = getChildByWeight(node, i);
-    if ( tryGetSatValue(curNode) != desiredValInverted )
-      if(findSplitterRec(curNode, desiredVal))
-        return true;
+    if ( tryGetSatValue(curNode) != desiredValInverted ) {
+      SearchResult ret = findSplitterRec(curNode, desiredVal);
+      if(ret != DONT_KNOW)
+        return ret;
+    }
   }
-  return false;
-  // Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
+  Assert(d_curThreshold != 0, "handleAndOrEasy: No controlling input found");
+  return DONT_KNOW;
 }
 
-bool JustificationHeuristic::handleAndOrHard(TNode node,
+JustificationHeuristic::SearchResult JustificationHeuristic::handleAndOrHard(TNode node,
                                              SatValue desiredVal) {
   Assert( (node.getKind() == kind::AND and desiredVal == SAT_VALUE_TRUE) or 
           (node.getKind() == kind::OR  and desiredVal == SAT_VALUE_FALSE) );
 
   int numChildren = node.getNumChildren();
+  bool noSplitter = true;
   for(int i = 0; i < numChildren; ++i) {
     TNode curNode = getChildByWeight(node, i);
-    if (findSplitterRec(curNode, desiredVal))
-      return true;
+    SearchResult ret = findSplitterRec(curNode, desiredVal);
+    if (ret == FOUND_SPLITTER)
+      return FOUND_SPLITTER;
+    noSplitter = noSplitter && (ret == NO_SPLITTER);
   }
-  return false;
+  return noSplitter ? NO_SPLITTER : DONT_KNOW;
 }
 
-bool JustificationHeuristic::handleBinaryEasy(TNode node1,
+JustificationHeuristic::SearchResult JustificationHeuristic::handleBinaryEasy(TNode node1,
                                               SatValue desiredVal1,
                                               TNode node2,
                                               SatValue desiredVal2)
@@ -488,17 +508,21 @@ bool JustificationHeuristic::handleBinaryEasy(TNode node1,
     swap(desiredVal1, desiredVal2);
   }
 
-  if ( tryGetSatValue(node1) != invertValue(desiredVal1) )
-    if(findSplitterRec(node1, desiredVal1))
-      return true;
-  if ( tryGetSatValue(node2) != invertValue(desiredVal2) )
-    if(findSplitterRec(node2, desiredVal2))
-      return true;
-  // Assert(d_curThreshold != 0, "handleBinaryEasy: No controlling input found");
-  return false;
+  if ( tryGetSatValue(node1) != invertValue(desiredVal1) ) {
+    SearchResult ret = findSplitterRec(node1, desiredVal1);
+    if(ret != DONT_KNOW)
+      return ret;
+  }
+  if ( tryGetSatValue(node2) != invertValue(desiredVal2) ) {
+    SearchResult ret = findSplitterRec(node2, desiredVal2);
+    if(ret != DONT_KNOW)
+      return ret;
+  }
+  Assert(d_curThreshold != 0, "handleBinaryEasy: No controlling input found");
+  return DONT_KNOW;
 }
 
-bool JustificationHeuristic::handleBinaryHard(TNode node1,
+JustificationHeuristic::SearchResult JustificationHeuristic::handleBinaryHard(TNode node1,
                                               SatValue desiredVal1,
                                               TNode node2,
                                               SatValue desiredVal2)
@@ -508,12 +532,23 @@ bool JustificationHeuristic::handleBinaryHard(TNode node1,
     swap(desiredVal1, desiredVal2);
   }
 
-  if( findSplitterRec(node1, desiredVal1) )
-    return true;
-  return findSplitterRec(node2, desiredVal2);
+  bool noSplitter = true;
+  SearchResult ret;
+
+  ret = findSplitterRec(node1, desiredVal1);
+  if (ret == FOUND_SPLITTER)
+    return FOUND_SPLITTER;
+  noSplitter &= (ret == NO_SPLITTER);
+
+  ret = findSplitterRec(node2, desiredVal2);
+  if (ret == FOUND_SPLITTER)
+    return FOUND_SPLITTER;
+  noSplitter &= (ret == NO_SPLITTER);
+
+  return noSplitter ? NO_SPLITTER : DONT_KNOW;
 }
 
-bool JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
+JustificationHeuristic::SearchResult JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
 {
   Debug("decision::jh") << " handleITE (" << node << ", "
                               << desiredVal << std::endl;
@@ -521,12 +556,6 @@ bool JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
   //[0]: if, [1]: then, [2]: else
   SatValue ifVal = tryGetSatValue(node[0]);
   if (ifVal == SAT_VALUE_UNKNOWN) {
-      
-    // are we better off trying false? if not, try true [CHOICE]
-     /* (tryGetSatValue(node[2]) == desiredVal ||
-       tryGetSatValue(node[1]) == invertValue(desiredVal))
-      ? SAT_VALUE_FALSE : SAT_VALUE_TRUE;*/
-
     SatValue trueChildVal = tryGetSatValue(node[1]);
     SatValue falseChildVal = tryGetSatValue(node[2]);
     SatValue ifDesiredVal;
@@ -542,41 +571,42 @@ bool JustificationHeuristic::handleITE(TNode node, SatValue desiredVal)
       ifDesiredVal = SAT_VALUE_TRUE;
     }
 
-    if(findSplitterRec(node[0], ifDesiredVal)) return true;
+    if(findSplitterRec(node[0], ifDesiredVal) == FOUND_SPLITTER)
+      return FOUND_SPLITTER;
     
     Assert(d_curThreshold != 0, "No controlling input found (6)");
+    return DONT_KNOW;
   } else {
     // Try to justify 'if'
-    if(findSplitterRec(node[0], ifVal)) return true;
+    if(findSplitterRec(node[0], ifVal) == FOUND_SPLITTER)
+      return FOUND_SPLITTER;
 
     // If that was successful, we need to go into only one of 'then'
     // or 'else'
     int ch = (ifVal == SAT_VALUE_TRUE) ? 1 : 2;
 
-    // STALE code: remove after tests or mar 2013, whichever earlier
-    // int chVal = tryGetSatValue(node[ch]);
-    // Assert(chVal == SAT_VALUE_UNKNOWN || chVal == desiredVal);
-    // end STALE code: remove
-
-    if( findSplitterRec(node[ch], desiredVal) ) {
-      return true;
+    if( findSplitterRec(node[ch], desiredVal) == FOUND_SPLITTER ) {
+      return FOUND_SPLITTER;
     }
+
+    return NO_SPLITTER;
   }// else (...ifVal...)
-  return false;
 }
 
-bool JustificationHeuristic::handleEmbeddedITEs(TNode node)
+JustificationHeuristic::SearchResult JustificationHeuristic::handleEmbeddedITEs(TNode node)
 {
   const IteList l = getITEs(node);
   Trace("decision::jh::ite") << " ite size = " << l.size() << std::endl;
 
+  bool noSplitter = true;
   for(IteList::const_iterator i = l.begin(); i != l.end(); ++i) {
     if(d_visited.find((*i).first) == d_visited.end()) {
       d_visited.insert((*i).first);
-      if(findSplitterRec((*i).second, SAT_VALUE_TRUE))
-        return true;
+      SearchResult ret = findSplitterRec((*i).second, SAT_VALUE_TRUE);
+      if(ret == FOUND_SPLITTER)
+        return ret;
       d_visited.erase((*i).first);
     }
   }
-  return false;
+  return noSplitter ? NO_SPLITTER : DONT_KNOW;
 }
