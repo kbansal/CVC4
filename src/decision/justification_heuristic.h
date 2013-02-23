@@ -37,6 +37,9 @@ namespace CVC4 {
 namespace decision {
 
 class JustificationHeuristic : public ITEDecisionStrategy {
+  //                   TRUE           FALSE         MEH
+  enum SearchResult {FOUND_SPLITTER, NO_SPLITTER, DONT_KNOW};
+
   typedef std::vector<pair<TNode,TNode> > IteList;
   typedef context::CDHashMap<TNode,IteList,TNodeHashFunction> IteCache;
   typedef std::vector<TNode> ChildList;
@@ -46,7 +49,8 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   // being 'justified' is monotonic with respect to decisions
   typedef context::CDHashSet<Node,NodeHashFunction> JustifiedSet;
   JustifiedSet d_justified;
-  JustifiedSet d_threshJustified;
+  typedef context::CDHashMap<Node,DecisionWeight,NodeHashFunction> ExploredThreshold;
+  ExploredThreshold d_exploredThreshold;
   context::CDO<unsigned>  d_prvsIndex;
   context::CDO<unsigned>  d_threshPrvsIndex;
 
@@ -111,11 +115,13 @@ private:
   /** 
    * Do all the hard work. 
    */ 
-  bool findSplitterRec(TNode node, SatValue value);
+  SearchResult findSplitterRec(TNode node, SatValue value);
 
   /* Helper functions */
   void setJustified(TNode);
   bool checkJustified(TNode);
+  DecisionWeight getExploredThreshold(TNode);
+  void setExploredThreshold(TNode);
   void setPrvsIndex(int);
   int  getPrvsIndex();
   static DecisionWeight getWeight(TNode);
@@ -132,14 +138,14 @@ private:
   /* Compute all term-ITEs in a node recursively */
   void computeITEs(TNode n, IteList &l);
 
-  bool handleAndOrEasy(TNode node, SatValue desiredVal);
-  bool handleAndOrHard(TNode node, SatValue desiredVal);
-  bool handleBinaryEasy(TNode node1, SatValue desiredVal1,
+  SearchResult handleAndOrEasy(TNode node, SatValue desiredVal);
+  SearchResult handleAndOrHard(TNode node, SatValue desiredVal);
+  SearchResult handleBinaryEasy(TNode node1, SatValue desiredVal1,
                         TNode node2, SatValue desiredVal2);
-  bool handleBinaryHard(TNode node1, SatValue desiredVal1,
+  SearchResult handleBinaryHard(TNode node1, SatValue desiredVal1,
                         TNode node2, SatValue desiredVal2);
-  bool handleITE(TNode node, SatValue desiredVal);
-  bool handleEmbeddedITEs(TNode node);
+  SearchResult handleITE(TNode node, SatValue desiredVal);
+  SearchResult handleEmbeddedITEs(TNode node);
 };/* class JustificationHeuristic */
 
 }/* namespace decision */
