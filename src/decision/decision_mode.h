@@ -46,6 +46,14 @@ enum DecisionMode {
 
 };/* enum DecisionMode */
 
+
+/** Enumeration of combining functions for computing internal weights */
+enum DecisionWeightInternal {
+  DECISION_WEIGHT_INTERNAL_OFF,
+  DECISION_WEIGHT_INTERNAL_MAX,
+  DECISION_WEIGHT_INTERNAL_SUM
+};/* enum DecisionInternalWeight */
+
 }/* CVC4::decision namespace */
 
 std::ostream& operator<<(std::ostream& out, decision::DecisionMode mode) CVC4_PUBLIC;
