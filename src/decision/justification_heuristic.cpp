@@ -237,9 +237,35 @@ void JustificationHeuristic::setPrvsIndex(int prvsIndex)
 }
 
 DecisionWeight JustificationHeuristic::getWeight(TNode n) {
-  if(options::decisionRandomWeight() != 0 &&
-     !n.hasAttribute(theory::DecisionWeightAttr())) {
-    n.setAttribute(theory::DecisionWeightAttr(), rand() % options::decisionRandomWeight());
+  if(!n.hasAttribute(theory::DecisionWeightAttr()) ) {
+
+    DecisionWeightInternal combiningFn =
+      options::decisionWeightInternal();
+
+    if(combiningFn == DECISION_WEIGHT_INTERNAL_OFF || n.getNumChildren() == 0) {
+
+      if(options::decisionRandomWeight() != 0) {
+        n.setAttribute(theory::DecisionWeightAttr(), rand() % options::decisionRandomWeight());
+      }
+
+    } else if(combiningFn == DECISION_WEIGHT_INTERNAL_MAX) {
+
+      DecisionWeight dW = 0;
+      for(TNode::iterator i=n.begin(); i != n.end(); ++i)
+        dW = max(dW, getWeight(*i));
+      n.setAttribute(theory::DecisionWeightAttr(), dW);
+
+    } else if(combiningFn == DECISION_WEIGHT_INTERNAL_SUM) {
+
+      DecisionWeight dW = 0;
+      for(TNode::iterator i=n.begin(); i != n.end(); ++i)
+        dW = max(dW, getWeight(*i));
+      n.setAttribute(theory::DecisionWeightAttr(), dW);
+
+    } else {
+      Unreachable();
+    }
+
   }
   return n.getAttribute(theory::DecisionWeightAttr());
 }
