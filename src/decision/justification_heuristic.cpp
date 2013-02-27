@@ -474,6 +474,7 @@ JustificationHeuristic::findSplitterRec(TNode node, SatValue desiredVal)
       SatVariable v =
         d_decisionEngine->getSatLiteral(node).getSatVariable();
       d_curDecision = SatLiteral(v, desiredVal != SAT_VALUE_TRUE );
+      Trace("decision::atom") << "picked atom :  " << node << std::endl;
       return FOUND_SPLITTER;
     }
   }
