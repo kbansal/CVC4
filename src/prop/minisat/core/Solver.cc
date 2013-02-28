@@ -108,6 +108,7 @@ Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, 
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
+  , final_trail_size(-1)
 
   , ok                 (true)
   , cla_inc            (1)
@@ -1140,6 +1141,8 @@ lbool Solver::search(int nof_conflicts)
             }
 
         } else {
+
+            final_trail_size = trail.size();
 
 	    // If this was a final check, we are satisfiable
             if (check_type == CHECK_FINAL) {

@@ -223,7 +223,8 @@ MinisatSatSolver::Statistics::Statistics() :
   d_statClausesLiterals("sat::clauses_literals"),
   d_statLearntsLiterals("sat::learnts_literals"),
   d_statMaxLiterals("sat::max_literals"),
-  d_statTotLiterals("sat::tot_literals")
+  d_statTotLiterals("sat::tot_literals"),
+  d_statTrailSize("sat::trail_size")
 {
   StatisticsRegistry::registerStat(&d_statStarts);
   StatisticsRegistry::registerStat(&d_statDecisions);
@@ -234,6 +235,7 @@ MinisatSatSolver::Statistics::Statistics() :
   StatisticsRegistry::registerStat(&d_statLearntsLiterals);
   StatisticsRegistry::registerStat(&d_statMaxLiterals);
   StatisticsRegistry::registerStat(&d_statTotLiterals);
+  StatisticsRegistry::registerStat(&d_statTrailSize);
 }
 MinisatSatSolver::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_statStarts);
@@ -245,6 +247,7 @@ MinisatSatSolver::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
   StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
   StatisticsRegistry::unregisterStat(&d_statTotLiterals);
+  StatisticsRegistry::unregisterStat(&d_statTrailSize);
 }
 void MinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
   d_statStarts.setData(d_minisat->starts);
@@ -256,4 +259,5 @@ void MinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
   d_statLearntsLiterals.setData(d_minisat->learnts_literals);
   d_statMaxLiterals.setData(d_minisat->max_literals);
   d_statTotLiterals.setData(d_minisat->tot_literals);
+  d_statTrailSize.setData(d_minisat->final_trail_size);
 }
