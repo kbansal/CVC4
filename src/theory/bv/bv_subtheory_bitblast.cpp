@@ -60,6 +60,7 @@ void BitblastSolver::preRegister(TNode node) {
     if (options::bitvectorEagerBitblast()) {
       d_bitblaster->bbAtom(node);
     } else {
+      CodeTimer weightComputationTime(d_bv->d_statistics.d_weightComputationTimer);
       d_bitblastQueue.push_back(node);
       if ((options::decisionUseWeight() || options::decisionThreshold() != 0) &&
           !node.hasAttribute(theory::DecisionWeightAttr())) {
