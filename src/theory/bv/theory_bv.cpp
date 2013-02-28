@@ -58,17 +58,20 @@ void TheoryBV::setMasterEqualityEngine(eq::EqualityEngine* eq) {
 TheoryBV::Statistics::Statistics():
   d_avgConflictSize("theory::bv::AvgBVConflictSize"),
   d_solveSubstitutions("theory::bv::NumberOfSolveSubstitutions", 0),
-  d_solveTimer("theory::bv::solveTimer")
+  d_solveTimer("theory::bv::solveTimer"),
+  d_weightComputationTimer("theory::bv::weightComputationTimer")
 {
   StatisticsRegistry::registerStat(&d_avgConflictSize);
   StatisticsRegistry::registerStat(&d_solveSubstitutions);
   StatisticsRegistry::registerStat(&d_solveTimer);
+  StatisticsRegistry::registerStat(&d_weightComputationTimer);
 }
 
 TheoryBV::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_avgConflictSize);
   StatisticsRegistry::unregisterStat(&d_solveSubstitutions);
   StatisticsRegistry::unregisterStat(&d_solveTimer);
+  StatisticsRegistry::unregisterStat(&d_weightComputationTimer);
 }
 
 void TheoryBV::preRegisterTerm(TNode node) {

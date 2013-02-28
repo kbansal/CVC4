@@ -46,6 +46,7 @@ void BitblastSolver::preRegister(TNode node) {
        node.getKind() == kind::BITVECTOR_SLT ||
        node.getKind() == kind::BITVECTOR_SLE) &&
       !d_bitblaster->hasBBAtom(node)) {
+    CodeTimer weightComputationTime(d_bv->d_statistics.d_weightComputationTimer);
     d_bitblastQueue.push_back(node);
     if ((options::decisionUseWeight() || options::decisionThreshold() != 0) &&
         !node.hasAttribute(theory::DecisionWeightAttr())) {

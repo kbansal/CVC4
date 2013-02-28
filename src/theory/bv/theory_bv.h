@@ -74,6 +74,7 @@ private:
     AverageStat d_avgConflictSize;
     IntStat     d_solveSubstitutions;
     TimerStat   d_solveTimer;
+    TimerStat   d_weightComputationTimer;
     Statistics();
     ~Statistics();
   };
