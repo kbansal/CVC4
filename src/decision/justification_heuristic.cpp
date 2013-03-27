@@ -629,8 +629,9 @@ JustificationHeuristic::SearchResult JustificationHeuristic::handleEmbeddedITEs(
     if(d_visited.find((*i).first) == d_visited.end()) {
       d_visited.insert((*i).first);
       SearchResult ret = findSplitterRec((*i).second, SAT_VALUE_TRUE);
-      if(ret == FOUND_SPLITTER)
-        return ret;
+      if (ret == FOUND_SPLITTER)
+        return FOUND_SPLITTER;
+      noSplitter = noSplitter && (ret == NO_SPLITTER);
       d_visited.erase((*i).first);
     }
   }
