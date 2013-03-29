@@ -46,7 +46,8 @@ JustificationHeuristic::JustificationHeuristic(CVC4::DecisionEngine* de,
   d_visitedComputeITE(),
   d_curDecision(),
   d_curThreshold(0),
-  d_childCache(uc) {
+  d_childCache(uc),
+  d_weightCache(uc) {
   StatisticsRegistry::registerStat(&d_helfulness);
   StatisticsRegistry::registerStat(&d_giveup);
   StatisticsRegistry::registerStat(&d_timestat);
@@ -185,6 +186,8 @@ void JustificationHeuristic::addAssertions
 
     d_iteAssertions[i->first] = assertions[i->second];
   }
+
+  // Automatic weight computation
 }
 
 SatLiteral JustificationHeuristic::findSplitter(TNode node,
@@ -236,6 +239,58 @@ void JustificationHeuristic::setPrvsIndex(int prvsIndex)
     d_threshPrvsIndex = prvsIndex;
 }
 
+DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, SatValue satValue)
+{
+  Assert(satValue == SAT_VALUE_TRUE || satValue == SAT_VALUE_FALSE);
+  return getWeightPolarized(n, satValue == SAT_VALUE_TRUE);
+}
+
+DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity)
+{
+  if(options::decisionWeightInternal() != DECISION_WEIGHT_INTERNAL_USR1) {
+    return getWeight(n);
+  }
+
+  if(d_weightCache.find(n) == d_weightCache.end()) {
+    Kind k = n.getKind();
+    theory::TheoryId tId  = theory::kindToTheoryId(k);
+    DecisionWeight dW1, dW2;
+    if(tId != theory::THEORY_BOOL) {
+      dW1 = dW2 = getWeight(n);
+    } else {
+
+      if(k == kind::OR) {
+        dW1 = numeric_limits<DecisionWeight>::max(), dW2 = 0;
+        for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+          dW1 = min(dW1, getWeightPolarized(*i, true));
+          dW2 = max(dW2, getWeightPolarized(*i, false));
+        }
+      } else if(k == kind::AND) {
+        dW1 = 0, dW2 = numeric_limits<DecisionWeight>::max();
+        for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+          dW1 = max(dW1, getWeightPolarized(*i, true));
+          dW2 = min(dW2, getWeightPolarized(*i, false));
+        }
+      } else if(k == kind::IMPLIES) {
+        dW1 = min(getWeightPolarized(n[0], false),
+                  getWeightPolarized(n[1], true));
+        dW2 = max(getWeightPolarized(n[0], true),
+                  getWeightPolarized(n[1], false));
+      } else {
+        dW1 = 0;
+        for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+          dW1 = max(dW1, getWeightPolarized(*i, true));
+          dW1 = max(dW1, getWeightPolarized(*i, false));
+        }
+        dW2 = dW1;
+      }
+
+    }
+    d_weightCache[n] = make_pair(dW1, dW2);
+  }
+  return polarity ? d_weightCache[n].get().second : d_weightCache[n].get().first;
+}
+
 DecisionWeight JustificationHeuristic::getWeight(TNode n) {
   if(!n.hasAttribute(theory::DecisionWeightAttr()) ) {
 
@@ -255,8 +310,8 @@ DecisionWeight JustificationHeuristic::getWeight(TNode n) {
         dW = max(dW, getWeight(*i));
       n.setAttribute(theory::DecisionWeightAttr(), dW);
 
-    } else if(combiningFn == DECISION_WEIGHT_INTERNAL_SUM) {
-
+    } else if(combiningFn == DECISION_WEIGHT_INTERNAL_SUM ||
+              combiningFn == DECISION_WEIGHT_INTERNAL_USR1) {
       DecisionWeight dW = 0;
       for(TNode::iterator i=n.begin(); i != n.end(); ++i)
         dW = max(dW, getWeight(*i));
@@ -270,21 +325,17 @@ DecisionWeight JustificationHeuristic::getWeight(TNode n) {
   return n.getAttribute(theory::DecisionWeightAttr());
 }
 
-bool JustificationHeuristic::compareByWeight(TNode n1, TNode n2)
-{
-  return getWeight(n1) < getWeight(n2);
-}
-
 typedef vector<TNode> ChildList;
-TNode JustificationHeuristic::getChildByWeight(TNode n, int i) {
+TNode JustificationHeuristic::getChildByWeight(TNode n, int i, bool polarity) {
   if(options::decisionUseWeight()) {
     // TODO: Optimize storing & access
     if(d_childCache.find(n) == d_childCache.end()) {
-      ChildList list = ChildList(n.begin(), n.end());
-      std::sort(list.begin(), list.end(), JustificationHeuristic::compareByWeight);
-      d_childCache[n] = list;
+      ChildList list0(n.begin(), n.end()), list1(n.begin(), n.end());
+      std::sort(list0.begin(), list0.end(), JustificationHeuristic::myCompareClass(this,false));
+      std::sort(list1.begin(), list1.end(), JustificationHeuristic::myCompareClass(this,true));
+      d_childCache[n] = make_pair(list0, list1);
     }
-    return d_childCache[n].get()[i];
+    return polarity ? d_childCache[n].get().second[i] : d_childCache[n].get().first[i];
   } else {
     return n[i];
   }
@@ -415,7 +466,7 @@ JustificationHeuristic::findSplitterRec(TNode node, SatValue desiredVal)
     } 
     else {
       Assert(d_decisionEngine->hasSatLiteral(node));
-      if(d_curThreshold != 0 && getWeight(node) >= d_curThreshold)
+      if(d_curThreshold != 0 && getWeightPolarized(node, desiredVal) >= d_curThreshold)
         return DONT_KNOW;
       SatVariable v =
         d_decisionEngine->getSatLiteral(node).getSatVariable();
@@ -496,7 +547,7 @@ JustificationHeuristic::handleAndOrEasy(TNode node, SatValue desiredVal)
   int numChildren = node.getNumChildren();
   SatValue desiredValInverted = invertValue(desiredVal);
   for(int i = 0; i < numChildren; ++i) {
-    TNode curNode = getChildByWeight(node, i);
+    TNode curNode = getChildByWeight(node, i, desiredVal);
     if ( tryGetSatValue(curNode) != desiredValInverted ) {
       SearchResult ret = findSplitterRec(curNode, desiredVal);
       if(ret != DONT_KNOW)
@@ -515,7 +566,7 @@ JustificationHeuristic::SearchResult JustificationHeuristic::handleAndOrHard(TNo
   int numChildren = node.getNumChildren();
   bool noSplitter = true;
   for(int i = 0; i < numChildren; ++i) {
-    TNode curNode = getChildByWeight(node, i);
+    TNode curNode = getChildByWeight(node, i, desiredVal);
     SearchResult ret = findSplitterRec(curNode, desiredVal);
     if (ret == FOUND_SPLITTER)
       return FOUND_SPLITTER;
@@ -529,7 +580,8 @@ JustificationHeuristic::SearchResult JustificationHeuristic::handleBinaryEasy(TN
                                               TNode node2,
                                               SatValue desiredVal2)
 {
-  if(options::decisionUseWeight() && getWeight(node1) > getWeight(node2)) {
+  if(options::decisionUseWeight() &&
+     getWeightPolarized(node1, desiredVal1) > getWeightPolarized(node2, desiredVal2)) {
     swap(node1, node2);
     swap(desiredVal1, desiredVal2);
   }
@@ -553,7 +605,8 @@ JustificationHeuristic::SearchResult JustificationHeuristic::handleBinaryHard(TN
                                               TNode node2,
                                               SatValue desiredVal2)
 {
-  if(options::decisionUseWeight() && getWeight(node1) > getWeight(node2)) {
+  if(options::decisionUseWeight() &&
+     getWeightPolarized(node1, desiredVal1) > getWeightPolarized(node2, desiredVal2)) {
     swap(node1, node2);
     swap(desiredVal1, desiredVal2);
   }
@@ -590,7 +643,8 @@ JustificationHeuristic::SearchResult JustificationHeuristic::handleITE(TNode nod
       ifDesiredVal = SAT_VALUE_TRUE;
     } else if(trueChildVal == invertValue(desiredVal) ||
               falseChildVal == desiredVal ||
-              (options::decisionUseWeight() && getWeight(node[1]) > getWeight(node[2]))
+              (options::decisionUseWeight() &&
+               getWeightPolarized(node[1], true) > getWeightPolarized(node[2], false))
               ) {
       ifDesiredVal = SAT_VALUE_FALSE;
     } else {
