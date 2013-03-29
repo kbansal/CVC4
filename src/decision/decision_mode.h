@@ -51,7 +51,8 @@ enum DecisionMode {
 enum DecisionWeightInternal {
   DECISION_WEIGHT_INTERNAL_OFF,
   DECISION_WEIGHT_INTERNAL_MAX,
-  DECISION_WEIGHT_INTERNAL_SUM
+  DECISION_WEIGHT_INTERNAL_SUM,
+  DECISION_WEIGHT_INTERNAL_USR1
 };/* enum DecisionInternalWeight */
 
 }/* CVC4::decision namespace */

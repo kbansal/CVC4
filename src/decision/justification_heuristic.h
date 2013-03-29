@@ -43,8 +43,9 @@ class JustificationHeuristic : public ITEDecisionStrategy {
   typedef std::vector<pair<TNode,TNode> > IteList;
   typedef context::CDHashMap<TNode,IteList,TNodeHashFunction> IteCache;
   typedef std::vector<TNode> ChildList;
-  typedef context::CDHashMap<TNode,ChildList,TNodeHashFunction> ChildCache;
+  typedef context::CDHashMap<TNode,pair<ChildList,ChildList>,TNodeHashFunction> ChildCache;
   typedef context::CDHashMap<TNode,TNode,TNodeHashFunction> SkolemMap;
+  typedef context::CDHashMap<TNode,pair<DecisionWeight,DecisionWeight>,TNodeHashFunction> WeightCache;
 
   // being 'justified' is monotonic with respect to decisions
   typedef context::CDHashSet<Node,NodeHashFunction> JustifiedSet;
@@ -93,6 +94,21 @@ class JustificationHeuristic : public ITEDecisionStrategy {
 
   /** child cache */
   ChildCache d_childCache;
+
+  /** computed polarized weight cache */
+  WeightCache d_weightCache;
+
+
+  class myCompareClass {
+    JustificationHeuristic* d_jh;
+    bool d_b;
+  public:
+    myCompareClass(JustificationHeuristic* jh, bool b):d_jh(jh),d_b(b) {};
+    bool operator() (TNode n1, TNode n2) {
+      return d_jh->getWeightPolarized(n1, d_b) < d_jh->getWeightPolarized(n2, d_b);
+    }
+  };
+
 public:
   JustificationHeuristic(CVC4::DecisionEngine* de,
                          context::UserContext *uc,
@@ -124,9 +140,12 @@ private:
   void setExploredThreshold(TNode);
   void setPrvsIndex(int);
   int  getPrvsIndex();
+  DecisionWeight getWeightPolarized(TNode n, bool polarity);
+  DecisionWeight getWeightPolarized(TNode n, SatValue);
   static DecisionWeight getWeight(TNode);
-  static bool compareByWeight(TNode, TNode);
-  TNode getChildByWeight(TNode n, int i);
+  bool compareByWeightFalse(TNode, TNode);
+  bool compareByWeightTrue(TNode, TNode);
+  TNode getChildByWeight(TNode n, int i, bool polarity);
 
   /* If literal exists corresponding to the node return
      that. Otherwise an UNKNOWN */

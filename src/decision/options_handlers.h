@@ -114,6 +114,8 @@ inline DecisionWeightInternal stringToDecisionWeightInternal(std::string option,
     return DECISION_WEIGHT_INTERNAL_MAX;
   else if(optarg == "sum")
     return DECISION_WEIGHT_INTERNAL_SUM;
+  else if(optarg == "usr1")
+    return DECISION_WEIGHT_INTERNAL_USR1;
   else
     throw OptionException(std::string("--decision-weight-internal must be off, max or sum."));
 }
