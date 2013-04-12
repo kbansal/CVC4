@@ -161,88 +161,92 @@ inline void dumpMode(std::string option, std::string optarg, SmtEngine* smt) {
   char* toksave;
   while((optargPtr = strtok_r(tokstr, ",", &toksave)) != NULL) {
     tokstr = NULL;
-    if(!strcmp(optargPtr, "benchmark")) {
-    } else if(!strcmp(optargPtr, "declarations")) {
-    } else if(!strcmp(optargPtr, "assertions")) {
-      Dump.on("assertions:post-everything");
-    } else if(!strncmp(optargPtr, "assertions:", 11)) {
-      const char* p = optargPtr + 11;
-      if(!strncmp(p, "pre-", 4)) {
-        p += 4;
-      } else if(!strncmp(p, "post-", 5)) {
-        p += 5;
-      } else {
-        throw OptionException(std::string("don't know how to dump `") +
-                              optargPtr + "'.  Please consult --dump help.");
-      }
-      if(!strcmp(p, "everything")) {
-      } else if(!strcmp(p, "definition-expansion")) {
-      } else if(!strcmp(p, "boolean-terms")) {
-      } else if(!strcmp(p, "constrain-subtypes")) {
-      } else if(!strcmp(p, "substitution")) {
-      } else if(!strcmp(p, "skolem-quant")) {
-      } else if(!strcmp(p, "simplify")) {
-      } else if(!strcmp(p, "static-learning")) {
-      } else if(!strcmp(p, "ite-removal")) {
-      } else if(!strcmp(p, "repeat-simplify")) {
-      } else if(!strcmp(p, "theory-preprocessing")) {
-      } else {
-        throw OptionException(std::string("don't know how to dump `") +
-                              optargPtr + "'.  Please consult --dump help.");
-      }
-      Dump.on("assertions");
-    } else if(!strcmp(optargPtr, "skolems")) {
-    } else if(!strcmp(optargPtr, "clauses")) {
-    } else if(!strcmp(optargPtr, "t-conflicts") ||
-              !strcmp(optargPtr, "t-lemmas") ||
-              !strcmp(optargPtr, "t-explanations") ||
-              !strcmp(optargPtr, "bv-rewrites") ||
-              !strcmp(optargPtr, "theory::fullcheck")) {
-      // These are "non-state-dumping" modes.  If state (SAT decisions,
-      // propagations, etc.) is dumped, it will interfere with the validity
-      // of these generated queries.
-      if(Dump.isOn("state")) {
-        throw OptionException(std::string("dump option `") + optargPtr +
-                              "' conflicts with a previous, "
-                              "state-dumping dump option.  You cannot "
-                              "mix stateful and non-stateful dumping modes; "
-                              "see --dump help.");
-      } else {
-        Dump.on("no-permit-state");
-      }
-    } else if(!strcmp(optargPtr, "state") ||
-              !strcmp(optargPtr, "missed-t-conflicts") ||
-              !strcmp(optargPtr, "t-propagations") ||
-              !strcmp(optargPtr, "missed-t-propagations")) {
-      // These are "state-dumping" modes.  If state (SAT decisions,
-      // propagations, etc.) is not dumped, it will interfere with the
-      // validity of these generated queries.
-      if(Dump.isOn("no-permit-state")) {
-        throw OptionException(std::string("dump option `") + optargPtr +
-                              "' conflicts with a previous, "
-                              "non-state-dumping dump option.  You cannot "
-                              "mix stateful and non-stateful dumping modes; "
-                              "see --dump help.");
-      } else {
-        Dump.on("state");
-      }
-    } else if(!strcmp(optargPtr, "help")) {
-      puts(dumpHelp.c_str());
-      exit(1);
+    if(!strncmp(optargPtr, "tree:", 5)) {
+      Dump.on(optargPtr);
     } else {
-      throw OptionException(std::string("unknown option for --dump: `") +
-                            optargPtr + "'.  Try --dump help.");
-    }
-
-    Dump.on(optargPtr);
-    Dump.on("benchmark");
-    if(strcmp(optargPtr, "benchmark")) {
-      Dump.on("declarations");
-      if(strcmp(optargPtr, "declarations")) {
-        Dump.on("skolems");
+      if(!strcmp(optargPtr, "benchmark")) {
+      } else if(!strcmp(optargPtr, "declarations")) {
+      } else if(!strcmp(optargPtr, "assertions")) {
+        Dump.on("assertions:post-everything");
+      } else if(!strncmp(optargPtr, "assertions:", 11)) {
+        const char* p = optargPtr + 11;
+        if(!strncmp(p, "pre-", 4)) {
+          p += 4;
+        } else if(!strncmp(p, "post-", 5)) {
+          p += 5;
+        } else {
+          throw OptionException(std::string("don't know how to dump `") +
+                                optargPtr + "'.  Please consult --dump help.");
+        }
+        if(!strcmp(p, "everything")) {
+        } else if(!strcmp(p, "definition-expansion")) {
+        } else if(!strcmp(p, "boolean-terms")) {
+        } else if(!strcmp(p, "constrain-subtypes")) {
+        } else if(!strcmp(p, "substitution")) {
+        } else if(!strcmp(p, "skolem-quant")) {
+        } else if(!strcmp(p, "simplify")) {
+        } else if(!strcmp(p, "static-learning")) {
+        } else if(!strcmp(p, "ite-removal")) {
+        } else if(!strcmp(p, "repeat-simplify")) {
+        } else if(!strcmp(p, "theory-preprocessing")) {
+        } else {
+          throw OptionException(std::string("don't know how to dump `") +
+                                optargPtr + "'.  Please consult --dump help.");
+        }
+        Dump.on("assertions");
+      } else if(!strcmp(optargPtr, "skolems")) {
+      } else if(!strcmp(optargPtr, "clauses")) {
+      } else if(!strcmp(optargPtr, "t-conflicts") ||
+                !strcmp(optargPtr, "t-lemmas") ||
+                !strcmp(optargPtr, "t-explanations") ||
+                !strcmp(optargPtr, "bv-rewrites") ||
+                !strcmp(optargPtr, "theory::fullcheck")) {
+        // These are "non-state-dumping" modes.  If state (SAT decisions,
+        // propagations, etc.) is dumped, it will interfere with the validity
+        // of these generated queries.
+        if(Dump.isOn("state")) {
+          throw OptionException(std::string("dump option `") + optargPtr +
+                                "' conflicts with a previous, "
+                                "state-dumping dump option.  You cannot "
+                                "mix stateful and non-stateful dumping modes; "
+                                "see --dump help.");
+        } else {
+          Dump.on("no-permit-state");
+        }
+      } else if(!strcmp(optargPtr, "state") ||
+                !strcmp(optargPtr, "missed-t-conflicts") ||
+                !strcmp(optargPtr, "t-propagations") ||
+                !strcmp(optargPtr, "missed-t-propagations")) {
+        // These are "state-dumping" modes.  If state (SAT decisions,
+        // propagations, etc.) is not dumped, it will interfere with the
+        // validity of these generated queries.
+        if(Dump.isOn("no-permit-state")) {
+          throw OptionException(std::string("dump option `") + optargPtr +
+                                "' conflicts with a previous, "
+                                "non-state-dumping dump option.  You cannot "
+                                "mix stateful and non-stateful dumping modes; "
+                                "see --dump help.");
+        } else {
+          Dump.on("state");
+        }
+      } else if(!strcmp(optargPtr, "help")) {
+        puts(dumpHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(std::string("unknown option for --dump: `") +
+                              optargPtr + "'.  Try --dump help.");
       }
-    }
-  }
+
+      Dump.on(optargPtr);
+      Dump.on("benchmark");
+      if(strcmp(optargPtr, "benchmark")) {
+        Dump.on("declarations");
+        if(strcmp(optargPtr, "declarations")) {
+          Dump.on("skolems");
+        }
+      }
+    }/* else */
+  }/* while */
   free(optargPtr);
 #else /* CVC4_DUMPING */
   throw OptionException("The dumping feature was disabled in this build of CVC4.");

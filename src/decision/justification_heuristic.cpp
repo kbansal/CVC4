@@ -19,6 +19,8 @@
 
 #include "justification_heuristic.h"
 
+#include <queue>
+
 #include "expr/node_manager.h"
 #include "expr/kind.h"
 #include "theory/rewriter.h"
@@ -72,6 +74,53 @@ CVC4::prop::SatLiteral JustificationHeuristic::getNext(bool &stopSearch)
     Assert(stopSearchTmp == true);
   }
   return getNextThresh(stopSearch, 0);
+}
+
+void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
+  typedef std::hash_set<TNode, TNodeHashFunction> node_set;
+
+  node_set visited;
+  std::queue<TNode> toProcess;
+  for(unsigned i = 0; i < d_assertions.size(); ++i) {
+    toProcess.push(d_assertions[i]);
+    visited.insert(d_assertions[i]);
+  }
+
+  stream << "node [shape=record];" << std::endl;
+
+  int max_count = 200;
+
+  while(!toProcess.empty() && --max_count > 0) {
+    TNode node = toProcess.front();
+    for(unsigned i = 0; i < node.getNumChildren(); ++i) {
+      TNode child = node[i];
+      stream << node.getId() << " -> " << child.getId() << ";" << std::endl;
+      if(visited.find(child) == visited.end()) {
+        if(theory::kindToTheoryId(child.getKind()) == theory::THEORY_BOOL ||
+           Dump.isOn("tree:weightfull")) {
+          toProcess.push(child);
+        }
+        visited.insert(child);
+      }
+    }
+    toProcess.pop();
+  }
+
+  for(node_set::iterator i = visited.begin(); i != visited.end(); ++i) {
+    TNode node = *i;
+    stream << node.getId() << " [label=\"";
+    switch(options::decisionWeightInternal()) {
+    case DECISION_WEIGHT_INTERNAL_USR1:
+      stream << "{ " << node.getKind() << "| { "
+             << getWeightPolarized(node, true) << " | "
+             << getWeightPolarized(node, false) << " } } ";
+      break;
+    default:
+      stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
+      break;
+    }
+    stream << "\"];" << std::endl;
+  }
 }
 
 CVC4::prop::SatLiteral JustificationHeuristic::getNextThresh(bool &stopSearch, DecisionWeight threshold) {
@@ -172,8 +221,9 @@ void JustificationHeuristic::addAssertions
     << std::endl;
 
   // Save the 'real' assertions locally
-  for(unsigned i = 0; i < assertionsEnd; ++i)
+  for(unsigned i = 0; i < assertionsEnd; ++i) {
     d_assertions.push_back(assertions[i]);
+  }
 
   // Save mapping between ite skolems and ite assertions
   for(IteSkolemMap::iterator i = iteSkolemMap.begin();
@@ -194,6 +244,14 @@ SatLiteral JustificationHeuristic::findSplitter(TNode node,
                                                 SatValue desiredVal)
 {
   d_curDecision = undefSatLiteral;
+  if(Dump.isOn("tree:weight") || Dump.isOn("tree:weightfull")) {
+    std::ostream& stream = Dump.getStream();
+    stream << "digraph {" << std::endl;
+    dumpDecisionWeightTree(stream);
+    stream << "}" << std::endl;
+    Dump.off("tree:weight");
+    Dump.off("tree:weightfull");
+  }
   if(findSplitterRec(node, desiredVal)) {
     ++d_helfulness;
   } 

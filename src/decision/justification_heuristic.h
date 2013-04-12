@@ -147,6 +147,9 @@ private:
   bool compareByWeightTrue(TNode, TNode);
   TNode getChildByWeight(TNode n, int i, bool polarity);
 
+  /* Dump/debug related */
+  void dumpDecisionWeightTree(std::ostream &stream);
+
   /* If literal exists corresponding to the node return
      that. Otherwise an UNKNOWN */
   SatValue tryGetSatValue(Node n);
