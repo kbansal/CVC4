@@ -276,6 +276,9 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity
                   getWeightPolarized(n[1], true));
         dW2 = max(getWeightPolarized(n[0], true),
                   getWeightPolarized(n[1], false));
+      } else if(k == kind::NOT) {
+        dW1 = getWeightPolarized(n[0], false);
+        dW2 = getWeightPolarized(n[0], true);
       } else {
         dW1 = 0;
         for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
@@ -288,7 +291,7 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity
     }
     d_weightCache[n] = make_pair(dW1, dW2);
   }
-  return polarity ? d_weightCache[n].get().second : d_weightCache[n].get().first;
+  return polarity ? d_weightCache[n].get().first : d_weightCache[n].get().second;
 }
 
 DecisionWeight JustificationHeuristic::getWeight(TNode n) {
