@@ -86,11 +86,13 @@ void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
     visited.insert(d_assertions[i]);
   }
 
-  stream << "node [shape=record];" << std::endl;
+  // stream << "node [shape=record];" << std::endl;
+  stream << "node [shape=point];" << std::endl;
 
-  int max_count = 200;
+  // int max_count = 200;
+  // int max_count = 1000;
 
-  while(!toProcess.empty() && --max_count > 0) {
+  while(!toProcess.empty() /* && --max_count > 0 */) {
     TNode node = toProcess.front();
     for(unsigned i = 0; i < node.getNumChildren(); ++i) {
       TNode child = node[i];
@@ -108,18 +110,29 @@ void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
 
   for(node_set::iterator i = visited.begin(); i != visited.end(); ++i) {
     TNode node = *i;
-    stream << node.getId() << " [label=\"";
-    switch(options::decisionWeightInternal()) {
-    case DECISION_WEIGHT_INTERNAL_USR1:
-      stream << "{ " << node.getKind() << "| { "
-             << getWeightPolarized(node, true) << " | "
-             << getWeightPolarized(node, false) << " } } ";
-      break;
-    default:
-      stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
-      break;
-    }
-    stream << "\"];" << std::endl;
+    stream << node.getId();
+    while(node.getKind() == kind::NOT) node = node[0];
+    string color = "";
+    if(checkJustified(node))
+      color="green";
+    else if(tryGetSatValue(node) == SAT_VALUE_UNKNOWN)
+      color="blue";
+    else
+      color="red";
+
+    stream << " [color=" << color << "]" << std::endl;
+    // stream << node.getId() << " [label=\"";
+    // switch(options::decisionWeightInternal()) {
+    // case DECISION_WEIGHT_INTERNAL_USR1:
+    //   stream << "{ " << node.getKind() << "| { "
+    //          << getWeightPolarized(node, true) << " | "
+    //          << getWeightPolarized(node, false) << " } } ";
+    //   break;
+    // default:
+    //   stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
+    //   break;
+    // }
+    // stream << "\"];" << std::endl;
   }
 }
 
@@ -244,17 +257,18 @@ SatLiteral JustificationHeuristic::findSplitter(TNode node,
                                                 SatValue desiredVal)
 {
   d_curDecision = undefSatLiteral;
-  if(Dump.isOn("tree:weight") || Dump.isOn("tree:weightfull")) {
-    std::ostream& stream = Dump.getStream();
-    stream << "digraph {" << std::endl;
-    dumpDecisionWeightTree(stream);
-    stream << "}" << std::endl;
-    Dump.off("tree:weight");
-    Dump.off("tree:weightfull");
-  }
-  if(findSplitterRec(node, desiredVal)) {
+  if(findSplitterRec(node, desiredVal) == FOUND_SPLITTER) {
     ++d_helfulness;
-  } 
+  } else {
+    if(Dump.isOn("tree:weight") || Dump.isOn("tree:weightfull")) {
+      std::ostream& stream = Dump.getStream();
+      stream << "digraph {" << std::endl;
+      dumpDecisionWeightTree(stream);
+      stream << "}" << std::endl;
+      Dump.off("tree:weight");
+      Dump.off("tree:weightfull");
+    }
+  }
   return d_curDecision;
 }
 
