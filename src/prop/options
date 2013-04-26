@@ -28,7 +28,4 @@ option sat_refine_conflicts --refine-conflicts bool
 option minisatUseElim --minisat-elimination bool :default true :read-write 
  use Minisat elimination
 
-expert-option satFavorInternalFactor --favor-internal=N double :default 1e20
- factor to determine to use activity based decision vs external [lower=>more favorable]
-
 endmodule

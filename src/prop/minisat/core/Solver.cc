@@ -473,25 +473,17 @@ Lit Solver::pickBranchLit()
     Debug("propagateAsDecision") << "propagateAsDecision(): decide on another literal" << std::endl;
 
     // DE requests
-    if(!order_heap.empty() && activity[order_heap[0]] < options::satFavorInternalFactor() * var_inc ) {
-      bool stopSearch = false;
-      nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionEngineRequest(stopSearch));
-      if(stopSearch) {
-        return lit_Undef;
-      }
-      if(Trace.isOn("print-orderheap")) {
-        Trace("print-orderheap") << "var_inc = " << var_inc << ", ";
-        for(int i = 0; i < order_heap.size() && i < 50; ++i) {
-          Trace("print-orderheap") << activity[order_heap[i]] << " ";
-        }
-        Trace("print-orderheap") << std::endl << " --- " << std::endl;
-      }
-      if(nextLit != lit_Undef) {
-        Assert(value(var(nextLit)) == l_Undef, "literal to decide already has value");
-        decisions++;
-        return nextLit;
-      }
+    bool stopSearch = false;
+    nextLit = MinisatSatSolver::toMinisatLit(proxy->getNextDecisionEngineRequest(stopSearch));
+    if(stopSearch) {
+      return lit_Undef;
     }
+    if(nextLit != lit_Undef) {
+      Assert(value(var(nextLit)) == l_Undef, "literal to decide already has value");
+      decisions++;
+      return nextLit;
+    }
+
     Var next = var_Undef;
 
     // Random decision:
