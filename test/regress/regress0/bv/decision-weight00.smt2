@@ -15,6 +15,5 @@
 		(and (= x y)
 		     (not (= ((_ extract 2 2) x) ((_ extract 2 2) z))))
 		))
-		
 (check-sat)
 (exit)

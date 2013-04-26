@@ -501,16 +501,16 @@ inline uint64_t numNodesAux(TNode node, TNodeSet& seen) {
 
   uint64_t size = 1;
   for (unsigned i = 0; i < node.getNumChildren(); ++i) {
-    size += numNodesAux(node[i], seen); 
+    size += numNodesAux(node[i], seen);
   }
-  seen.insert(node); 
-  return size; 
+  seen.insert(node);
+  return size;
 }
 
 inline uint64_t numNodes(TNode node) {
   TNodeSet seen;
   uint64_t size = numNodesAux(node, seen);
-  return size; 
+  return size;
 }
 
 }

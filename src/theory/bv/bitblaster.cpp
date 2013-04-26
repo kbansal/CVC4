@@ -113,7 +113,7 @@ uint64_t Bitblaster::computeAtomWeight(TNode node) {
 
   Node atom_bb = Rewriter::rewrite(d_atomBBStrategies[node.getKind()](node, this));
   uint64_t size = utils::numNodes(atom_bb);
-  return size; 
+  return size;
 }
 
 void Bitblaster::bbTerm(TNode node, Bits& bits) {

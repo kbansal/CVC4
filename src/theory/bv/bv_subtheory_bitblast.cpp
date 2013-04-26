@@ -64,7 +64,7 @@ void BitblastSolver::preRegister(TNode node) {
       d_bitblastQueue.push_back(node);
       if ((options::decisionUseWeight() || options::decisionThreshold() != 0) &&
           !node.hasAttribute(theory::DecisionWeightAttr())) {
-        node.setAttribute(theory::DecisionWeightAttr(), d_bitblaster->computeAtomWeight(node)); 
+        node.setAttribute(theory::DecisionWeightAttr(), d_bitblaster->computeAtomWeight(node));
       }
     }
   }
