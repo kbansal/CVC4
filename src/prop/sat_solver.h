@@ -134,6 +134,8 @@ public:
 
   virtual bool isDecision(SatVariable decn) const = 0;
 
+  virtual double getActivity(SatVariable var) const = 0;
+
 };/* class DPLLSatSolverInterface */
 
 inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {

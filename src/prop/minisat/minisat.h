@@ -70,6 +70,8 @@ public:
 
   SatValue modelValue(SatLiteral l);
 
+  double getActivity(SatVariable var);
+
   bool properExplanation(SatLiteral lit, SatLiteral expl) const;
 
   /** Incremental interface */
@@ -85,6 +87,8 @@ public:
   bool flipDecision();
 
   bool isDecision(SatVariable decn) const;
+
+  double getActivity(SatVariable var) const;
 
   class Statistics {
   private:

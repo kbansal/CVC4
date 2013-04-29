@@ -110,7 +110,7 @@ void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
 
   for(node_set::iterator i = visited.begin(); i != visited.end(); ++i) {
     TNode node = *i;
-    stream << node.getId();
+    // stream << node.getId();
     while(node.getKind() == kind::NOT) node = node[0];
     string color = "";
     if(checkJustified(node))
@@ -120,19 +120,20 @@ void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
     else
       color="red";
 
-    stream << " [color=" << color << "]" << std::endl;
-    // stream << node.getId() << " [label=\"";
-    // switch(options::decisionWeightInternal()) {
-    // case DECISION_WEIGHT_INTERNAL_USR1:
-    //   stream << "{ " << node.getKind() << "| { "
-    //          << getWeightPolarized(node, true) << " | "
-    //          << getWeightPolarized(node, false) << " } } ";
-    //   break;
-    // default:
-    //   stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
-    //   break;
-    // }
-    // stream << "\"];" << std::endl;
+    //    stream << " [color=" << color << "]" << std::endl;
+
+    stream << node.getId() << " [label=\"";
+    switch(options::decisionWeightInternal()) {
+    case DECISION_WEIGHT_INTERNAL_USR1:
+      stream << "{ " << node.getKind() << "| { "
+             << getWeightPolarized(node, true) << " | "
+             << getWeightPolarized(node, false) << " } } ";
+      break;
+    default:
+      stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
+      break;
+    }
+    stream << ",color=" << color << "\"];" << std::endl;
   }
 }
 
@@ -253,21 +254,30 @@ void JustificationHeuristic::addAssertions
   // Automatic weight computation
 }
 
+
+void JustificationHeuristic::notifyRestart()
+{
+  Trace("decision") << " justification heuristic notified of restart"
+                    << std::endl;
+  if(Dump.isOn("tree:weight") || Dump.isOn("tree:weightfull")) {
+    std::ostream& stream = Dump.getStream();
+    stream << "digraph {" << std::endl;
+    dumpDecisionWeightTree(stream);
+    stream << "}" << std::endl;
+    // Dump.off("tree:weight");
+    // Dump.off("tree:weightfull");
+  }
+  d_weightCache.clear();
+  d_childCache.clear();
+}
+
+
 SatLiteral JustificationHeuristic::findSplitter(TNode node,
                                                 SatValue desiredVal)
 {
   d_curDecision = undefSatLiteral;
   if(findSplitterRec(node, desiredVal) == FOUND_SPLITTER) {
     ++d_helfulness;
-  } else {
-    if(Dump.isOn("tree:weight") || Dump.isOn("tree:weightfull")) {
-      std::ostream& stream = Dump.getStream();
-      stream << "digraph {" << std::endl;
-      dumpDecisionWeightTree(stream);
-      stream << "}" << std::endl;
-      Dump.off("tree:weight");
-      Dump.off("tree:weightfull");
-    }
   }
   return d_curDecision;
 }
@@ -328,7 +338,9 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity
     theory::TheoryId tId  = theory::kindToTheoryId(k);
     DecisionWeight dW1, dW2;
     if(tId != theory::THEORY_BOOL) {
-      dW1 = dW2 = getWeight(n);
+      //      dW1 = dW2 = getWeight(n);
+      dW1 = dW2 =
+        n.getAttribute(theory::DecisionWeightAttr()) / (1 + (DecisionWeight)d_decisionEngine->getActivity(n));
     } else {
 
       if(k == kind::OR) {
@@ -361,6 +373,8 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity
       }
 
     }
+    Trace("decision::weight")
+      << "Settings weight of " << n.getId() << " to (" << dW1 << ", " << dW2 << ")" << std::endl;
     d_weightCache[n] = make_pair(dW1, dW2);
   }
   return polarity ? d_weightCache[n].get().first : d_weightCache[n].get().second;

@@ -47,6 +47,8 @@ public:
   virtual bool needIteSkolemMap() { return false; }
   
   virtual void notifyAssertionsAvailable() { return; }
+
+  virtual void notifyRestart() { return; }
 };/* class DecisionStrategy */
 
 class ITEDecisionStrategy : public DecisionStrategy {
@@ -54,7 +56,6 @@ public:
   ITEDecisionStrategy(DecisionEngine* de, context::Context *c) :
     DecisionStrategy(de, c) {
   }
-
 
   bool needIteSkolemMap() { return true; }
 

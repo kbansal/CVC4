@@ -122,6 +122,7 @@ public:
                      unsigned assertionsEnd,
                      IteSkolemMap iteSkolemMap);
 
+  void notifyRestart();
 private:
   /* getNext with an option to specify threshold */
   prop::SatLiteral getNextThresh(bool &stopSearch, DecisionWeight threshold);

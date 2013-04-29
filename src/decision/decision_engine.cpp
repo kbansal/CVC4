@@ -96,11 +96,6 @@ void DecisionEngine::addAssertions(const vector<Node> &assertions)
 {
   Assert(false);  // doing this so that we revisit what to do
                   // here. Currently not being used.
-
-  // d_result = SAT_VALUE_UNKNOWN;
-  // d_assertions.reserve(assertions.size());
-  // for(unsigned i = 0; i < assertions.size(); ++i)
-  //   d_assertions.push_back(assertions[i]); 
 }
 
 void DecisionEngine::addAssertions(const vector<Node> &assertions,
@@ -118,5 +113,13 @@ void DecisionEngine::addAssertions(const vector<Node> &assertions,
     d_needIteSkolemMap[i]->
       addAssertions(assertions, assertionsEnd, iteSkolemMap);
 }
+
+void DecisionEngine::notifyRestart()
+{
+  for(unsigned i = 0; i < d_enabledStrategies.size(); ++i) {
+    d_enabledStrategies[i]->notifyRestart();
+  }
+}
+
 
 }/* CVC4 namespace */

@@ -198,6 +198,10 @@ bool MinisatSatSolver::isDecision(SatVariable decn) const {
   return d_minisat->isDecision( decn ); 
 }
 
+double MinisatSatSolver::getActivity(SatVariable var) const {
+  return d_minisat->getActivity( var );
+}
+
 /** Incremental interface */
 
 unsigned MinisatSatSolver::getAssertionLevel() const {

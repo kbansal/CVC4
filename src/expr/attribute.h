@@ -51,6 +51,8 @@ class AttributeManager {
   AttrHash<bool> d_bools;
   /** Underlying hash table for integral-valued attributes */
   AttrHash<uint64_t> d_ints;
+  /** Underlying hash table for double-valued attributes */
+  AttrHash<double> d_doubles;
   /** Underlying hash table for node-valued attributes */
   AttrHash<TNode> d_tnodes;
   /** Underlying hash table for node-valued attributes */
@@ -69,6 +71,8 @@ class AttributeManager {
   CDAttrHash<bool> d_cdbools;
   /** Underlying hash table for context-dependent integral-valued attributes */
   CDAttrHash<uint64_t> d_cdints;
+  /** Underlying hash table for context-dependent double-valued attributes */
+  CDAttrHash<double> d_cddoubles;
   /** Underlying hash table for context-dependent node-valued attributes */
   CDAttrHash<TNode> d_cdtnodes;
   /** Underlying hash table for context-dependent node-valued attributes */
@@ -100,6 +104,7 @@ public:
   AttributeManager(context::Context* ctxt) :
     d_cdbools(ctxt),
     d_cdints(ctxt),
+    d_cddoubles(ctxt),
     d_cdtnodes(ctxt),
     d_cdnodes(ctxt),
     d_cdstrings(ctxt),
@@ -208,6 +213,18 @@ struct getTable<uint64_t, false> {
   }
 };
 
+/** Access the "d_doubles" member of AttributeManager. */
+template <>
+struct getTable<double, false> {
+  typedef AttrHash<double> table_type;
+  static inline table_type& get(AttributeManager& am) {
+    return am.d_doubles;
+  }
+  static inline const table_type& get(const AttributeManager& am) {
+    return am.d_doubles;
+  }
+};
+
 /** Access the "d_tnodes" member of AttributeManager. */
 template <>
 struct getTable<TNode, false> {
@@ -301,6 +318,18 @@ struct getTable<uint64_t, true> {
   }
   static inline const table_type& get(const AttributeManager& am) {
     return am.d_cdints;
+  }
+};
+
+/** Access the "d_cddoubles" member of AttributeManager. */
+template <>
+struct getTable<double, true> {
+  typedef CDAttrHash<double> table_type;
+  static inline table_type& get(AttributeManager& am) {
+    return am.d_cddoubles;
+  }
+  static inline const table_type& get(const AttributeManager& am) {
+    return am.d_cddoubles;
   }
 };
 

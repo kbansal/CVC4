@@ -29,6 +29,7 @@ namespace attr {
 void AttributeManager::deleteAllAttributes(NodeValue* nv) {
   d_bools.erase(nv);
   deleteFromTable(d_ints, nv);
+  deleteFromTable(d_doubles, nv);
   deleteFromTable(d_tnodes, nv);
   deleteFromTable(d_nodes, nv);
   deleteFromTable(d_types, nv);
@@ -37,6 +38,7 @@ void AttributeManager::deleteAllAttributes(NodeValue* nv) {
 
   d_cdbools.erase(nv);
   deleteFromTable(d_cdints, nv);
+  deleteFromTable(d_cddoubles, nv);
   deleteFromTable(d_cdtnodes, nv);
   deleteFromTable(d_cdnodes, nv);
   deleteFromTable(d_cdstrings, nv);
@@ -46,6 +48,7 @@ void AttributeManager::deleteAllAttributes(NodeValue* nv) {
 void AttributeManager::deleteAllAttributes() {
   d_bools.clear();
   deleteAllFromTable(d_ints);
+  deleteAllFromTable(d_doubles);
   deleteAllFromTable(d_tnodes);
   deleteAllFromTable(d_nodes);
   deleteAllFromTable(d_types);
@@ -54,6 +57,7 @@ void AttributeManager::deleteAllAttributes() {
 
   d_cdbools.clear();
   d_cdints.clear();
+  d_cddoubles.clear();
   d_cdtnodes.clear();
   d_cdnodes.clear();
   d_cdstrings.clear();

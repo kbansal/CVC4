@@ -21,7 +21,7 @@
 
 namespace CVC4 {
 namespace decision {
-typedef uint64_t DecisionWeight;
+typedef double DecisionWeight;
 }
 namespace theory {
 namespace attr {

@@ -196,6 +196,8 @@ public:
     return d_assertions;
   }
 
+  void notifyRestart();
+
 
   // Interface for Strategies to get information about External World
 
@@ -213,6 +215,10 @@ public:
   }
   Node getNode(SatLiteral l) {
     return d_cnfStream->getNode(l);
+  }
+  double getActivity(TNode n) {
+    Assert(hasSatLiteral(n));
+    return d_satSolver->getActivity(getSatLiteral(n).getSatVariable());
   }
 
 private:

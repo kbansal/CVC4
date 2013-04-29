@@ -75,6 +75,8 @@ protected:
 public:
   /** Returns the current user assertion level */
   int getAssertionLevel() const { return assertionLevel; }
+  /** Returns the activity level of variable */
+  double getActivity(Var v) const { return activity[v]; }
 protected:
   /** Do we allow incremental solving */
   bool enable_incremental;
