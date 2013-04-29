@@ -22,6 +22,6 @@ expert-option decisionRandomWeight --decision-random-weight=N int :default 0
  assign random weights to nodes between 0 and N-1 (0: disable)
 
 expert-option decisionWeightInternal --decision-weight-internal=HOW decision::DecisionWeightInternal :handler CVC4::decision::stringToDecisionWeightInternal :default decision::DECISION_WEIGHT_INTERNAL_OFF :handler-include "decision/options_handlers.h"
- computer weights of internal nodes using children: off, max, sum, usr1 (meaning evolving)
+ how to compute weights, see --decision-weight-internal=help
 
 endmodule

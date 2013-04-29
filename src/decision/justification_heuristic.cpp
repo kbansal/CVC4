@@ -124,13 +124,21 @@ void JustificationHeuristic::dumpDecisionWeightTree(std::ostream &stream) {
 
     stream << node.getId() << " [label=\"";
     switch(options::decisionWeightInternal()) {
+    case DECISION_WEIGHT_INTERNAL_OFF:
+    case DECISION_WEIGHT_INTERNAL_SUM:
+    case DECISION_WEIGHT_INTERNAL_MAX:
+      stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
+      break;
     case DECISION_WEIGHT_INTERNAL_USR1:
+    case DECISION_WEIGHT_INTERNAL_USR2:
       stream << "{ " << node.getKind() << "| { "
              << getWeightPolarized(node, true) << " | "
              << getWeightPolarized(node, false) << " } } ";
       break;
-    default:
-      stream << "{ " << node.getKind() << " | " << getWeight(node) << " } ";
+    case DECISION_WEIGHT_ACTIVITY:
+    case DECISION_WEIGHT_ACTIVITY_INTERNAL_SUM:
+      stream << "{ " << node.getKind() << "| "
+             << getWeightPolarized(node, false) << " } ";
       break;
     }
     stream << ",color=" << color << "\"];" << std::endl;
@@ -329,7 +337,10 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, SatValue satV
 
 DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity)
 {
-  if(options::decisionWeightInternal() != DECISION_WEIGHT_INTERNAL_USR1) {
+  DecisionWeightInternal dwi = options::decisionWeightInternal();
+  if(dwi == DECISION_WEIGHT_INTERNAL_OFF ||
+     dwi == DECISION_WEIGHT_INTERNAL_SUM ||
+     dwi == DECISION_WEIGHT_INTERNAL_MAX) {
     return getWeight(n);
   }
 
@@ -338,40 +349,85 @@ DecisionWeight JustificationHeuristic::getWeightPolarized(TNode n, bool polarity
     theory::TheoryId tId  = theory::kindToTheoryId(k);
     DecisionWeight dW1, dW2;
     if(tId != theory::THEORY_BOOL) {
-      //      dW1 = dW2 = getWeight(n);
-      dW1 = dW2 =
-        n.getAttribute(theory::DecisionWeightAttr()) / (1 + (DecisionWeight)d_decisionEngine->getActivity(n));
+      switch(dwi) {
+      case DECISION_WEIGHT_INTERNAL_USR1:{
+        dW1 = dW2 = n.getAttribute(theory::DecisionWeightAttr());
+        break;
+      }
+      case DECISION_WEIGHT_INTERNAL_USR2: {
+        dW1 = dW2 = n.getAttribute(theory::DecisionWeightAttr()) / (1.0 + d_decisionEngine->getActivity(n));
+        break;
+      }
+      case DECISION_WEIGHT_ACTIVITY_INTERNAL_SUM:
+      case DECISION_WEIGHT_ACTIVITY: {
+        dW1 = dW2 = -d_decisionEngine->getActivity(n);
+        break;
+      }
+      case DECISION_WEIGHT_INTERNAL_OFF:
+      case DECISION_WEIGHT_INTERNAL_SUM:
+      case DECISION_WEIGHT_INTERNAL_MAX:{
+        Assert(false, "unreachable code, weight computation handled by another function");
+        break;
+      }
+      }//dwi switch
     } else {
+      switch(dwi) {
 
-      if(k == kind::OR) {
-        dW1 = numeric_limits<DecisionWeight>::max(), dW2 = 0;
-        for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
-          dW1 = min(dW1, getWeightPolarized(*i, true));
-          dW2 = max(dW2, getWeightPolarized(*i, false));
+      case DECISION_WEIGHT_INTERNAL_USR1:
+      case DECISION_WEIGHT_INTERNAL_USR2: {
+        if(k == kind::OR) {
+          dW1 = numeric_limits<DecisionWeight>::max(), dW2 = 0;
+          for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+            dW1 = min(dW1, getWeightPolarized(*i, true));
+            dW2 = max(dW2, getWeightPolarized(*i, false));
+          }
+        } else if(k == kind::AND) {
+          dW1 = 0, dW2 = numeric_limits<DecisionWeight>::max();
+          for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+            dW1 = max(dW1, getWeightPolarized(*i, true));
+            dW2 = min(dW2, getWeightPolarized(*i, false));
+          }
+        } else if(k == kind::IMPLIES) {
+          dW1 = min(getWeightPolarized(n[0], false),
+                    getWeightPolarized(n[1], true));
+          dW2 = max(getWeightPolarized(n[0], true),
+                    getWeightPolarized(n[1], false));
+        } else if(k == kind::NOT) {
+          dW1 = getWeightPolarized(n[0], false);
+          dW2 = getWeightPolarized(n[0], true);
+        } else {
+          dW1 = 0;
+          for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
+            dW1 = max(dW1, getWeightPolarized(*i, true));
+            dW1 = max(dW1, getWeightPolarized(*i, false));
+          }
+          dW2 = dW1;
         }
-      } else if(k == kind::AND) {
-        dW1 = 0, dW2 = numeric_limits<DecisionWeight>::max();
-        for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
-          dW1 = max(dW1, getWeightPolarized(*i, true));
-          dW2 = min(dW2, getWeightPolarized(*i, false));
-        }
-      } else if(k == kind::IMPLIES) {
-        dW1 = min(getWeightPolarized(n[0], false),
-                  getWeightPolarized(n[1], true));
-        dW2 = max(getWeightPolarized(n[0], true),
-                  getWeightPolarized(n[1], false));
-      } else if(k == kind::NOT) {
-        dW1 = getWeightPolarized(n[0], false);
-        dW2 = getWeightPolarized(n[0], true);
-      } else {
+        break;
+      }//DECISION_WEIGHT_INTERNAL_USR2 / USR1 case
+
+      case DECISION_WEIGHT_ACTIVITY: {
+        if(d_decisionEngine->hasSatLiteral(n)) {
+          dW1 = dW2 = -d_decisionEngine->getActivity(n);
+          break;
+        } /* else use the sum strategy */
+      }
+      case DECISION_WEIGHT_ACTIVITY_INTERNAL_SUM: {
         dW1 = 0;
         for(TNode::iterator i=n.begin(); i != n.end(); ++i) {
-          dW1 = max(dW1, getWeightPolarized(*i, true));
-          dW1 = max(dW1, getWeightPolarized(*i, false));
+          dW1 += getWeightPolarized(*i, true);
         }
         dW2 = dW1;
+        break;
       }
 
+      case DECISION_WEIGHT_INTERNAL_OFF:
+      case DECISION_WEIGHT_INTERNAL_SUM:
+      case DECISION_WEIGHT_INTERNAL_MAX:{
+        Assert(false, "unreachable code, weight computation handled by another function");
+        break;
+      }
+      }//switch dwi
     }
     Trace("decision::weight")
       << "Settings weight of " << n.getId() << " to (" << dW1 << ", " << dW2 << ")" << std::endl;

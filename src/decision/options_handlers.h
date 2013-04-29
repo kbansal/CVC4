@@ -58,16 +58,39 @@ inline DecisionMode stringToDecisionMode(std::string option, std::string optarg,
 }
 
 inline DecisionWeightInternal stringToDecisionWeightInternal(std::string option, std::string optarg, SmtEngine* smt) throw(OptionException) {
-  if(optarg == "off")
+  static const std::string decisionWeightInternalHelp = "\
+Decision weight computation modes currently supported by the\n\
+ --decision-weight-internal option:\n\
+\n\
+off        : use weights as set by theory\n\
+max, sum   : auto compute weights of internal nodes from children\n\
+usr1       : use polarity and accordingly use max or min\n\
+usr2       : usr1 + use activity in conjunction with weights set by theory\n\
+act        : override weight of theories, using sat solver activity as weights\n\
+act-internal-sum : use sat solver activity only for atoms, sum for internal\
+";
+
+  if(optarg == "off") {
     return DECISION_WEIGHT_INTERNAL_OFF;
-  else if(optarg == "max")
+  } else if(optarg == "max") {
     return DECISION_WEIGHT_INTERNAL_MAX;
-  else if(optarg == "sum")
+  } else if(optarg == "sum") {
     return DECISION_WEIGHT_INTERNAL_SUM;
-  else if(optarg == "usr1")
+  } else if(optarg == "usr1") {
     return DECISION_WEIGHT_INTERNAL_USR1;
-  else
-    throw OptionException(std::string("--decision-weight-internal must be off, max or sum."));
+  } else if(optarg == "usr2") {
+    return DECISION_WEIGHT_INTERNAL_USR2;
+  } else if(optarg == "act") {
+    return DECISION_WEIGHT_ACTIVITY;
+  } else if(optarg == "act-internal-sum") {
+    return DECISION_WEIGHT_ACTIVITY_INTERNAL_SUM;
+  } else if(optarg == "help") {
+    puts(decisionWeightInternalHelp.c_str());
+    exit(1);
+  } else {
+    throw OptionException(std::string("unknown option for --decision-weight-internal: `") +
+                          optarg + "'.  Try --decision help.");
+  }
 }
 
 }/* CVC4::decision namespace */
