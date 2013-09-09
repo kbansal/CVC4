@@ -1,0 +1,30 @@
+# kinds                                                               -*- sh -*-
+#
+# For documentation on this file format, please refer to
+# src/theory/builtin/kinds.
+#
+
+theory THEORY_SETS ::CVC4::theory::sets::TheorySets "theory/sets/theory_sets.h"
+typechecker "theory/sets/theory_sets_type_rules.h"
+rewriter ::CVC4::theory::sets::TheorySetsRewriter "theory/sets/theory_sets_rewriter.h"
+
+properties check
+
+# Theory content goes here.
+
+# constants...
+
+# types...
+operator SET_TYPE 1 "set type"   # the type 
+cardinality SET_TYPE \
+    "::CVC4::theory::sets::SetsProperties::computeCardinality(%TYPE%)" \
+    "theory/sets/theory_sets_type_rules.h"
+
+# operators...
+operator UNION 2 "set union"
+operator INTERSECTION 2 "set intersection"
+operator SETMINUS 2 "set subtraction"
+operator SUBSET 2 "subset"
+operator IN 2 "set membership"
+
+endtheory
