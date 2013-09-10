@@ -1256,6 +1256,11 @@ builtinOp[CVC4::Kind& kind]
   | REPLUS_TOK     { $kind = CVC4::kind::REGEXP_PLUS; }
   | REOPT_TOK      { $kind = CVC4::kind::REGEXP_OPT; }
   | RERANGE_TOK      { $kind = CVC4::kind::REGEXP_RANGE; }
+  | SETUNION_TOK  { $kind = CVC4::kind::UNION; }
+  | SETINT_TOK    { $kind = CVC4::kind::INTERSECTION; }
+  | SETMINUS_TOK  { $kind = CVC4::kind::SETMINUS; }
+  | SETSUB_TOK    { $kind = CVC4::kind::SUBSET; }
+  | SETIN_TOK     { $kind = CVC4::kind::IN; }
 
   // NOTE: Theory operators go here
   ;
@@ -1365,6 +1370,11 @@ sortSymbol[CVC4::Type& t, CVC4::parser::DeclarationCheck check]
           PARSER_STATE->parseError("Illegal array type.");
         }
         t = EXPR_MANAGER->mkArrayType( args[0], args[1] );
+      } else if(name == "Set") {
+        if(args.size() != 1) {
+          PARSER_STATE->parseError("Illegal set type.");
+        }
+        t = EXPR_MANAGER->mkSetType( args[0] );
       } else if(check == CHECK_DECLARED ||
                 PARSER_STATE->isDeclared(name, SYM_SORT)) {
         t = PARSER_STATE->getSort(name, args);
@@ -1630,6 +1640,12 @@ RESTAR_TOK : 're.*';
 REPLUS_TOK : 're.+';
 REOPT_TOK : 're.opt';
 RERANGE_TOK : 're.range';
+
+SETUNION_TOK: 'union';
+SETINT_TOK: 'intersection';
+SETMINUS_TOK: 'setminus';
+SETSUB_TOK: 'subset';
+SETIN_TOK: 'in';
 
 /**
  * A sequence of printable ASCII characters (except backslash) that starts

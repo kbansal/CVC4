@@ -319,6 +319,14 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     stillNeedToPrintParams = false;
     break;
 
+    // sets
+  case kind::UNION:
+  case kind::INTERSECTION:
+  case kind::SETMINUS:
+  case kind::SUBSET:
+  case kind::IN:
+  case kind::SET_TYPE: out << smtKindString(k) << " "; break;
+
     // datatypes
   case kind::APPLY_TYPE_ASCRIPTION: {
       out << "as ";
@@ -502,6 +510,13 @@ static string smtKindString(Kind k) throw() {
   case kind::BITVECTOR_SIGN_EXTEND: return "sign_extend";
   case kind::BITVECTOR_ROTATE_LEFT: return "rotate_left";
   case kind::BITVECTOR_ROTATE_RIGHT: return "rotate_right";
+
+  case kind::UNION: return "union";
+  case kind::INTERSECTION: return "intersection";
+  case kind::SETMINUS: return "setminus";
+  case kind::SUBSET: return "subset";
+  case kind::IN: return "in";
+  case kind::SET_TYPE: return "Set";
   default:
     ; /* fall through */
   }

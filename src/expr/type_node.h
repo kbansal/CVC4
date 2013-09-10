@@ -469,6 +469,9 @@ public:
   /** Is this an array type? */
   bool isArray() const;
 
+  /** Is this a Set type? */
+  bool isSet() const;
+
   /** Get the index type (for array types) */
   TypeNode getArrayIndexType() const;
 
@@ -477,6 +480,9 @@ public:
 
   /** Get the return type (for constructor types) */
   TypeNode getConstructorRangeType() const;
+
+  /** Get the element type (for set types) */
+  TypeNode getSetElementType() const;
 
   /**
    * Is this a function type?  Function-like things (e.g. datatype
@@ -868,6 +874,15 @@ inline TypeNode TypeNode::getArrayConstituentType() const {
 inline TypeNode TypeNode::getConstructorRangeType() const {
   Assert(isConstructor());
   return (*this)[getNumChildren()-1];
+}
+
+inline bool TypeNode::isSet() const {
+  return getKind() == kind::SET_TYPE;
+}
+
+inline TypeNode TypeNode::getSetElementType() const {
+  Assert(isSet());
+  return (*this)[0];
 }
 
 inline bool TypeNode::isFunction() const {
