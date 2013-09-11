@@ -27,4 +27,10 @@ operator SETMINUS 2 "set subtraction"
 operator SUBSET 2 "subset"
 operator IN 2 "set membership"
 
+typerule UNION ::CVC4::theory::sets::SetUnionTypeRule
+typerule INTERSECTION ::CVC4::theory::sets::SetIntersectionTypeRule
+#typerule SETMINUS ::CVC4::theory::sets::SetSetminusTypeRule
+#typerule SUBSET ::CVC4::theory::sets::SetSubsetTypeRule
+#typerule IN ::CVC4::theory::sets::SetInTypeRule
+
 endtheory

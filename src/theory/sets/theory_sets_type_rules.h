@@ -28,6 +28,44 @@ public:
 
 };/* class SetsTypeRule */
 
+struct SetUnionTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::UNION);
+    TypeNode setType = n[0].getType(check);
+    if( check ) {
+      if(!setType.isSet()) {
+        throw TypeCheckingExceptionPrivate(n, "set union operating on non-set");
+      }
+      TypeNode secondSetType = n[1].getType(check);
+      if(secondSetType != setType) {
+        throw TypeCheckingExceptionPrivate(n, "set union operating on sets of different types");
+      }
+    }
+    return setType;
+  }
+};/* struct SetUnionTypeRule */
+
+struct SetIntersectionTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::INTERSECTION);
+    TypeNode setType = n[0].getType(check);
+    if( check ) {
+      if(!setType.isSet()) {
+        throw TypeCheckingExceptionPrivate(n, "set intersection operating on non-set");
+      }
+      TypeNode secondSetType = n[1].getType(check);
+      if(secondSetType != setType) {
+        throw TypeCheckingExceptionPrivate(n, "set intersection operating on sets of different types");
+      }
+    }
+    return setType;
+  }
+};/* struct SetIntersectionTypeRule */
+
+
+
 struct SetsProperties {
   inline static Cardinality computeCardinality(TypeNode type) {
     Assert(type.getKind() == kind::SET_TYPE);
