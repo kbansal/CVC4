@@ -28,6 +28,7 @@ public:
 
 };/* class SetsTypeRule */
 
+// TODO: Union, Intersection and Setminus should be combined to one check
 struct SetUnionTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw (TypeCheckingExceptionPrivate, AssertionException) {
@@ -64,6 +65,59 @@ struct SetIntersectionTypeRule {
   }
 };/* struct SetIntersectionTypeRule */
 
+struct SetSetminusTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::SETMINUS);
+    TypeNode setType = n[0].getType(check);
+    if( check ) {
+      if(!setType.isSet()) {
+        throw TypeCheckingExceptionPrivate(n, "set setminus operating on non-set");
+      }
+      TypeNode secondSetType = n[1].getType(check);
+      if(secondSetType != setType) {
+        throw TypeCheckingExceptionPrivate(n, "set setminus operating on sets of different types");
+      }
+    }
+    return setType;
+  }
+};/* struct SetSetminusTypeRule */
+
+struct SetSubsetTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::SUBSET);
+    TypeNode setType = n[0].getType(check);
+    if( check ) {
+      if(!setType.isSet()) {
+        throw TypeCheckingExceptionPrivate(n, "set subset operating on non-set");
+      }
+      TypeNode secondSetType = n[1].getType(check);
+      if(secondSetType != setType) {
+        throw TypeCheckingExceptionPrivate(n, "set subset operating on sets of different types");
+      }
+    }
+    return nodeManager->booleanType();
+  }
+};/* struct SetSubsetTypeRule */
+
+struct SetInTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::IN);
+    TypeNode setType = n[1].getType(check);
+    if( check ) {
+      if(!setType.isSet()) {
+        throw TypeCheckingExceptionPrivate(n, "checking for membership in a non-set");
+      }
+      TypeNode elementType = n[0].getType(check);
+      if(elementType != setType.getSetElementType()) {
+        throw TypeCheckingExceptionPrivate(n, "set in operating on sets of different types");
+      }
+    }
+    return setType;
+  }
+};/* struct SetInTypeRule */
 
 
 struct SetsProperties {

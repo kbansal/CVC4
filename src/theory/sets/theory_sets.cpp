@@ -17,8 +17,6 @@ TheorySets::TheorySets(context::Context* c,
 }/* TheorySets::TheorySets() */
 
 void TheorySets::check(Effort level) {
-  return;
-
   while(!done()) {
     // Get all the assertions
     Assertion assertion = get();
@@ -26,6 +24,7 @@ void TheorySets::check(Effort level) {
 
     Debug("sets") << "TheorySets::check(): processing " << fact << std::endl;
 
+    continue;
     // Do the work
     switch(fact.getKind()) {
 
