@@ -115,7 +115,7 @@ struct SetInTypeRule {
         throw TypeCheckingExceptionPrivate(n, "set in operating on sets of different types");
       }
     }
-    return setType;
+    return nodeManager->booleanType();
   }
 };/* struct SetInTypeRule */
 

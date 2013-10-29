@@ -4,6 +4,7 @@
 #define __CVC4__THEORY__SETS__THEORY_SETS_H
 
 #include "theory/theory.h"
+#include "theory/uf/equality_engine.h"
 
 namespace CVC4 {
 namespace theory {
@@ -22,9 +23,37 @@ public:
 
   void check(Effort);
 
-  std::string identify() const {
-    return "THEORY_SETS";
-  }
+  void conflict(TNode, TNode);
+
+  Node explain(TNode);
+  
+  std::string identify() const { return "THEORY_SETS"; }
+
+  void PreRegisterTerm(TNode node);
+
+private:
+
+  /** Functions to handle callbacks from equality engine */
+  class NotifyClass : public eq::EqualityEngineNotify {
+    TheorySets& d_theory;
+
+  public:
+    NotifyClass(TheorySets& theory): d_theory(theory) {}
+    bool eqNotifyTriggerEquality(TNode equality, bool value);
+    bool eqNotifyTriggerPredicate(TNode predicate, bool value);
+    bool eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value);
+    void eqNotifyConstantTermMerge(TNode t1, TNode t2);
+    void eqNotifyNewClass(TNode t);
+    void eqNotifyPreMerge(TNode t1, TNode t2);
+    void eqNotifyPostMerge(TNode t1, TNode t2);
+    void eqNotifyDisequal(TNode t1, TNode t2, TNode reason);
+  } d_notify;
+
+  /** Equality engine */
+  eq::EqualityEngine d_equalityEngine;
+
+  context::CDO<bool> d_conflict;
+  Node d_conflictNode;
 
 };/* class TheorySets */
 

@@ -34,11 +34,46 @@ public:
    * rewritten by that theory's rewriter.
    */
   static RewriteResponse postRewrite(TNode node) {
+    NodeManager* nm = NodeManager::currentNM();
 
-    // Implement me!
+    switch(node.getKind()) {
 
-    // This default implementation
-    return RewriteResponse(REWRITE_DONE, node);
+    case kind::SUBSET: {
+      // rewrite (A subset-or-equal B) as (A union B = B) 
+      TNode A = node[0];
+      TNode B = node[1];
+      return RewriteResponse(REWRITE_AGAIN,
+                             nm->mkNode(kind::EQUAL,
+                                        nm->mkNode(kind::UNION, A, B),
+                                        B) );
+    }//kind::SUBSET
+
+    case kind::EQUAL:
+    case kind::IFF: {
+      //rewrite: t = t with true (t term)
+      //rewrite: c = c' with c different from c' false (c, c' constants)
+      //otherwise: sort them
+      if(node[0] == node[1]) {
+        Trace("arrays-postrewrite") << "Arrays::postRewrite returning true" << std::endl;
+        return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(true));
+      }
+      else if (node[0].isConst() && node[1].isConst()) {
+        Trace("arrays-postrewrite") << "Arrays::postRewrite returning false" << std::endl;
+        return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(false));
+      }
+      if (node[0] > node[1]) {
+        Node newNode = NodeManager::currentNM()->mkNode(node.getKind(), node[1], node[0]);
+        Trace("arrays-postrewrite") << "Arrays::postRewrite returning " << newNode << std::endl;
+        return RewriteResponse(REWRITE_DONE, newNode);
+      }
+      break;
+    }
+    default:
+      break;
+
+    }//switch(node.getKind())
+  // This default implementation
+  return RewriteResponse(REWRITE_DONE, node);
   }
 
   /**
@@ -51,7 +86,13 @@ public:
    * implementation here can do nothing.
    */
   static RewriteResponse preRewrite(TNode node) {
+    NodeManager* nm = NodeManager::currentNM();
+
     // do nothing
+    if(node.getKind() == kind::EQUAL && node[0] == node[1])
+      return RewriteResponse(REWRITE_DONE, nm->mkConst(true));
+    // Further optimization, if constants but differing ones
+
     return RewriteResponse(REWRITE_DONE, node);
   }
 
