@@ -9,6 +9,7 @@ libsets_la_SOURCES = \
 	theory_sets.h \
 	theory_sets.cpp \
 	theory_sets_rewriter.h \
+	theory_sets_rewriter.cpp \
 	theory_sets_type_rules.h
 
 EXTRA_DIST = \

@@ -325,7 +325,8 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::SETMINUS:
   case kind::SUBSET:
   case kind::IN:
-  case kind::SET_TYPE: out << smtKindString(k) << " "; break;
+  case kind::SET_TYPE:
+  case kind::SET_SINGLETON: out << smtKindString(k) << " "; break;
 
     // datatypes
   case kind::APPLY_TYPE_ASCRIPTION: {
@@ -517,6 +518,7 @@ static string smtKindString(Kind k) throw() {
   case kind::SUBSET: return "subset";
   case kind::IN: return "in";
   case kind::SET_TYPE: return "Set";
+  case kind::SET_SINGLETON: return "setenum";
   default:
     ; /* fall through */
   }

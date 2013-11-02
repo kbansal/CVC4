@@ -10,16 +10,23 @@ namespace CVC4 {
 namespace theory {
 namespace sets {
 
+class MembershipEngine;
+
 class TheorySets : public Theory {
 public:
 
-  /** Constructs a new instance of TheorySets w.r.t. the provided contexts. */
+  /**
+   * Constructs a new instance of TheorySets w.r.t. the provided
+   * contexts.
+   */
   TheorySets(context::Context* c,
                context::UserContext* u,
                OutputChannel& out,
                Valuation valuation,
                const LogicInfo& logicInfo,
                QuantifiersEngine* qe);
+
+  ~TheorySets();
 
   void check(Effort);
 
@@ -29,7 +36,7 @@ public:
   
   std::string identify() const { return "THEORY_SETS"; }
 
-  void PreRegisterTerm(TNode node);
+  void preRegisterTerm(TNode node);
 
 private:
 
@@ -55,6 +62,7 @@ private:
   context::CDO<bool> d_conflict;
   Node d_conflictNode;
 
+  MembershipEngine* d_membershipEngine;
 };/* class TheorySets */
 
 }/* CVC4::theory::sets namespace */

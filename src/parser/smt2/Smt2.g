@@ -1261,6 +1261,7 @@ builtinOp[CVC4::Kind& kind]
   | SETMINUS_TOK  { $kind = CVC4::kind::SETMINUS; }
   | SETSUB_TOK    { $kind = CVC4::kind::SUBSET; }
   | SETIN_TOK     { $kind = CVC4::kind::IN; }
+  | SETSINGLETON_TOK { $kind = CVC4::kind::SET_SINGLETON; }
 
   // NOTE: Theory operators go here
   ;
@@ -1646,6 +1647,7 @@ SETINT_TOK: 'intersection';
 SETMINUS_TOK: 'setminus';
 SETSUB_TOK: 'subset';
 SETIN_TOK: 'in';
+SETSINGLETON_TOK: 'setenum';
 
 /**
  * A sequence of printable ASCII characters (except backslash) that starts

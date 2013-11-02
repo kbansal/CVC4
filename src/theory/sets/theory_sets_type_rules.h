@@ -119,6 +119,14 @@ struct SetInTypeRule {
   }
 };/* struct SetInTypeRule */
 
+struct SetSingletonTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::SET_SINGLETON);
+    return nodeManager->mkSetType(n[0].getType(check));
+  }
+};/* struct SetInTypeRule */
+
 
 struct SetsProperties {
   inline static Cardinality computeCardinality(TypeNode type) {
