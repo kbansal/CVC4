@@ -119,6 +119,13 @@ struct Constraints {
 //   nb << a << b ;
 //   return nb.constructNode();
 // }
+
+static Node OR(TNode a, TNode b) {
+  NodeBuilder< > nb(kind::OR);
+  nb << a << b ;
+  return nb.constructNode();
+}
+
 static Node IN(TNode a, TNode b) {
   NodeBuilder< > nb(kind::IN);
   nb << a << b ;
@@ -129,6 +136,12 @@ static Node NOT(TNode a) {
   return a.notNode();
 }
 
+// static Node INTERSECTION(TNode a, TNode b) {
+//   NodeBuilder< > nb(kind::INTERSECTION);
+//   nb << a << b ;
+//   return nb.constructNode();
+// }
+
 class MembershipEngine {
 private:
   context::Context *d_context;
@@ -136,230 +149,227 @@ private:
   typedef context::CDHashSet<Node, NodeHashFunction> CDSetNode;
   CDSetNode d_terms;
 
+  // TODO, Make this user context dependent
+  std::hash_map<TNode, vector<TNode>, TNodeHashFunction> d_termParents;
+
+  context::CDO<bool> d_conflict;
+
   typedef context::CDHashSet<Node, NodeHashFunction> Collection; // set of sets/elements
   typedef hash_map <TNode, Collection*, TNodeHashFunction> TNodeToCollectionMap;
 
-  // mem[a] = {
-
   struct Info {
     bool polarity;
+    bool learnt;
   };
 
-  // context::CDHashMap <TNode, Info, TNodeHashFunction> d_assertions;
+  context::CDHashMap <Node, Info, NodeHashFunction> d_assertions;
 
-  struct State {
-    TNodeToCollectionMap mem;    // all elements in TNode
-    TNodeToCollectionMap notmem; // all elements not in TNode
-    TNodeToCollectionMap in;     // all sets TNode is in
-    TNodeToCollectionMap notin;  // all sets TNode is not in
-  } d_state;
-
-  queue<Node> d_assertionQueue;
-
-  bool state_insert(TNodeToCollectionMap &m, TNode k, TNode v) {
-    pair<TNodeToCollectionMap::iterator, bool> ret;
-    if(m.find(k) == m.end()) {
-      Collection *c = ::new Collection(d_context);
-      m[k] = c;
-    }
-    return m[k]->insert(v);   // return if it was inserted
-  }
-
-  void state_reset(TNodeToCollectionMap &m) {
-    TNodeToCollectionMap::iterator i;
-    for(i=m.begin(); i != m.end(); ++i) {
-      ::delete i->second;
-    }
-    m.clear();
-  }
-
-  bool state_contains(TNodeToCollectionMap &m, TNode k, TNode v) {
-    if(m.find(k) == m.end()) return false;
-    Assert(m[k] != NULL);
-    return m[k]->find(v) != m[k]->end();
-  }
-
-  hash_map<TNode, set<TNode>, TNodeHashFunction> d_implications;
-  void addImplication(TNode proposition, TNode consequence) {
-    Debug("sets-mem-im") << "[sets-mem] saving implication " << proposition
-                      << "  => " << consequence << std::endl;
-    d_implications[proposition].insert(consequence);
-  }
+  Node d_lemma;
 
 public:
 
   MembershipEngine(context::Context *c,
                    context::Context *u):
     d_context(c),
-    d_terms(u) {
-    ;
+    d_terms(u),
+    d_conflict(c),
+    d_assertions(c) {
     // Pending propagations
     // Pending <atom --> subsumption requirements>
   }
 
   ~MembershipEngine() {
-    // Delete all collections created
-    state_reset(d_state.in);
-    state_reset(d_state.notin);
-    state_reset(d_state.mem);
-    state_reset(d_state.notmem);
   }
 
-  void addTerm(TNode x) {
-    d_terms.insert(x);
+  bool inConflict() { return d_conflict; }
+
+  void addTerm(TNode n) {
+    d_terms.insert(n);
+    for(unsigned i = 0; i < n.getNumChildren(); ++i) {
+      d_termParents[n[i]].push_back(n);
+    }
   }
 
-  void assertMembership(TNode x, TNode S, bool polarity, TNode reason) {
-    Debug("sets-mem") << "[sets-mem] adding ( " << x
-                      << ", " << S
-                      << ", " << polarity
-                      << ", " << reason << std::endl;
-    // polarity( x in S )
-    if(polarity) {
-      Debug("sets-mem") << "[sets-mem]   adding to IN(" << x <<"):" << S << std::endl;
-      bool ret = state_insert(d_state.in, x, S);
-      if(ret == false) {        // Already exists, no further processing
-        Assert(state_insert(d_state.mem, S, x) == false);
-        return;
+  void printTermParents(TNode n) {
+    for(int i = 0; i < d_termParents[n].size(); ++i) {
+      Debug("sets") << d_termParents[n][i];
+    }
+  }
+
+  void printAllTermParents() {
+    Debug("sets") << "[sets] printAllTermParents()\n";
+    for(typeof(d_termParents.begin()) i = d_termParents.begin();
+        i != d_termParents.end(); ++i) {
+      Debug("sets") << "[sets]   parents of " << i->first << ": ";
+      printTermParents(i->first);
+      Debug("sets") << std::endl;
+    }
+  }
+
+  void assertFact(TNode fact, TNode reason, bool learnt) {
+    Debug("sets-mem") << "\n[sets-mem] adding ( " << fact
+                      << ", " << reason
+                      << ", " << learnt << std::endl;
+
+    vector<TNode> v;
+    getCurrentAssertions(v);
+
+    bool polarity = fact.getKind() == kind::NOT ? false : true;
+    TNode literal = polarity ? fact : fact[0];
+
+    if(d_assertions.find(literal) != d_assertions.end()) {
+      if(d_assertions[literal].get().polarity != polarity) {
+        Assert("conflict found");
+        d_conflict = true;
       }
-      Debug("sets-mem") << "[sets-mem]   adding to MEM(" << S <<"):" << x << std::endl;
-      state_insert(d_state.mem, S, x);
+      return;
+      // Info& literal_info = d_assertions[fact];
     } else {
-      Debug("sets-mem") << "[sets-mem]   adding to NOT IN(" << x <<"):" << S << std::endl;
-      bool ret = state_insert(d_state.notin, x, S);
-      if(ret == false) {        // Already exists, no further processing 
-        Assert(state_insert(d_state.notmem, S, x) == false);
-      }
-      Debug("sets-mem") << "[sets-mem]   adding to NOT MEM(" << S <<"):" << x << std::endl;
-      state_insert(d_state.notmem, S, x);
+      Assert(literal.getNumChildren() == 2);
+      Info literal_info;
+      literal_info.polarity = polarity;
+      literal_info.learnt = learnt;
+      d_assertions[literal] = literal_info;
     }
 
-    switch(S.getKind()) {
-    case kind::VARIABLE: {
-      break;
+    if(literal.getKind() != kind::EQUAL) {
+      TNode x = literal[0];
+      TNode S = literal[1];
+      doSettermPropagation(x, S);
+    } else {
+      // handleEqual(literal);
     }
-    case kind::UNION: {
-      Debug("sets-mem") << "UNION: pending" << std::endl;
-      if(polarity == false) {
-        // x in S1 U S2 => x in S1, x in S2
-        assertMembership(x, S[0], polarity, reason);
-        assertMembership(x, S[1], polarity, reason);
-      }
-      if(polarity == true) {
-        if( state_contains(d_state.notin, x, S[0]) ) {
-          assertMembership(x, S[1], polarity, reason /*Incorrect*/);
-          break;
-        }
-        if( state_contains(d_state.notin, x, S[1]) ) {
-          assertMembership(x, S[0], polarity, reason /*Incorrect*/);
-        }
-        addImplication(NOT(IN(x, S[0])), IN(x, S));
-        addImplication(NOT(IN(x, S[1])), IN(x, S));
-      }
-      break;
-    }
-    case kind::SET_SINGLETON: {
-      assertEqual(x, S[0], polarity, reason);
-      break;
-    }
-    default:
-      Assert("Should had been one of the above kinds, what is wrong?");
-
-    }
-        
-    // checkImplications(x, S, polarity);
-
+    
+    checkInvariants();
   }
 
-  void process() {
-    // Step 1: when we get a new assertion, check all rules that might be relevant; add 
+  void doSettermPropagation(TNode x, TNode S) {
+    Assert(S.getType().isSet() && S.getType().getSetElementType() == x.getType());
+
+    // For now, only handle Union -- others will be similar
+    // Let us first commit, then continue.  "Current cursor position"
+  }
+
+  bool checkInvariants() {
+    // all assertions must contain terms which are in d_terms
+    bool ret = true;
+    for(typeof(d_assertions.begin()) i = d_assertions.begin();
+        ret && i != d_assertions.end(); ++i) {
+      TNode literal = (*i).first;
+      Assert(literal.getKind() == kind::IN ||
+             literal.getKind() == kind::EQUAL);
+      ret = ret && d_terms.find(literal[0]) != d_terms.end()
+        && d_terms.find(literal[1]) != d_terms.end();
+      Assert(ret);         // can disable this later, if needed
+    }
+    return ret;
+  }
+
+  // returns true if something was added
+  bool learnLiteral(TNode atom, bool polarity) {
+    Debug("sets-learn") << "[sets-learn] learnLiteral(" << atom
+                        << ", " << polarity << ")" << std::endl;
+    if(d_assertions.find(atom) != d_assertions.end()) {
+      if(d_assertions[atom].get().polarity != polarity) {
+        Debug("sets-learn") << "conflict found" << std::endl;
+        d_conflict = true;
+      }
+      return false;
+    } else {
+      Node learnt_literal = polarity ? Node(atom) : NOT(atom);
+      assertFact(learnt_literal, learnt_literal, /* learnt = */ true);
+      return true;
+    }
+  }
+
+  // A U B <=> A v B
+  // A INT B <=> A ^ B
+  // A \ B <=> A ^ (not B)
+
+  bool applyRule1(TNode n, bool polarity) {
+    bool added = false;
+    if(polarity && n.getKind() == kind::IN 
+       && n[1].getKind() == kind::INTERSECTION) {
+
+      added = learnLiteral(IN(n[0], n[1][0]), polarity);
+      if(d_conflict) return false;
+
+      added |= learnLiteral(IN(n[0], n[1][1]), polarity);
+      if(d_conflict) return false;
+    }
+    return added;
+  }
+
+  bool present(TNode n) {
+    return d_assertions.find(n) != d_assertions.end();
+  }
+
+  bool checkSubsumption1(TNode n, bool polarity) {
+    if(polarity && n.getKind() == kind::IN
+       && n[1].getKind() == kind::UNION) {
+
+      Node n1 = IN(n[0], n[1][0]);
+      Node n2 = IN(n[0], n[1][1]);
+
+      if(present(n1) && d_assertions[n1].get().polarity == polarity) {
+        return true;
+      }
+      if(present(n2) && d_assertions[n2].get().polarity == polarity) {
+        return true;
+      }
+      d_lemma = OR(n1, n2);
+      return false;
+    }
+    return true;
+  }
+
+  bool checkCompleteness() {
+    for(typeof(d_assertions.begin()) i = d_assertions.begin();
+        i != d_assertions.end(); ++i) {
+      bool ret = checkSubsumption1( (*i).first, (*i).second.polarity);
+      if(!ret) return false;
+    }
+    return true;
+  }
+
+  Node getLemma() {
+    return d_lemma;
+  }
+
+  // returns false if a conflict was found, true otherwise
+  bool propagate() {
+    static bool in_propagate = false;
+    if(in_propagate) return true;
+    in_propagate = true;
+    // Step 1: when we get a new assertion, check all rules that might
+    // be relevant
+    bool anyChange = false;
+    do {
+      for(typeof(d_assertions.begin()) i = d_assertions.begin();
+          i != d_assertions.end(); ++i) {
+        anyChange = applyRule1( (*i).first, (*i).second.polarity);
+        if(d_conflict) return false;
+      }
+    }while(anyChange);
+    in_propagate = false;
+    return true;
+  }
+
+  void getCurrentAssertions(std::vector<TNode>& assumptions) {
+    Debug("sets-mem") << "[sets-mem] Current assertions:" << std::endl; 
+    for(typeof(d_assertions.begin()) i = d_assertions.begin();
+        i != d_assertions.end(); ++i) {
+      if( (*i).second.learnt) continue;
+      Node literal = (*i).second.polarity ? Node((*i).first) : NOT( (*i).first);
+      assumptions.push_back(literal);
+      Debug("sets-mem") << "[sets-mem]   " << literal << std::endl; 
+    }
   }
 
   void assertEqual(TNode a, TNode b, bool polarity, TNode reason) {
     
   }
 };
-
-// class SetsHelper {
-
-//   TNodeSet d_allConstraints;
-
-//   bool propagate(TNode n) {
-//     if(d_allConstraints.find(n) == d_allConstraints.end()) {
-//       return false;
-//     }
-
-//     // not found, insert
-//     d_allConstraints.insert(n);
-//     return true;
-//   }
-// public:
-//   bool applySaturationRule(TNode n, Constraints constraints) {
-//     // The term must have a valuation
-//     Pattern e;
-//     Pattern s1, s2;
-//     INTERSECTION inter(s1, s2);
-//     IN rule1(e, inter);
-//     IN rule1impA(e, s1), rule1impB(e, s2);
-
-//     if( rule1.match(n)) {
-//       Debug("pattern") << "rule1 match: " << n << endl;
-//       // propagate(
-//     } else {
-//       Debug("pattern") << "NO match " << n << endl;
-//     }
-
-//     for(unsigned i = 0; i < n.getNumChildren(); ++i) {
-//       applySaturationRule(n[i], constraints);
-//     }
-//     // SatValue v = getValuation(n);
-//     // if(n.getKind() == kind::IN && v == SAT_VALUE_TRUE &&
-//     //    n[1].getKind() == kind::INTERSECTION && ) {
-//     //   if( IN(... , ) );
-//     // }
-//     return false;
-//   }
-
-//   Result::Sat check(Constraints c) {
-//     // What's the idea?
-
-//     map<TNode, Result::Sat, TNodeHashFunction> valuation;
-
-//     TNodeSet terms;
-
-//     // Saturate c, generating new constraints which we call extra_c
-//     Constraints extra_c;
-    
-//     for(typeof(c.equalities.begin()) i = c.equalities.begin(); i != c.equalities.end(); ++i)  
-//       applySaturationRule(*i, c);
-
-//     /**
-//      * What goes on in saturate?
-//      * Use one of the rules, do get a new propagation:
-//      *    if it already exists, we say voila -- that's it! stop search.
-//      *    what if it isn't -- add the propagation, and store the source (extra_c)
-//      */
-
-//     /**
-//      * If terminates with UNSAT,
-//      * To get an explanation, just trace back to the roots of the
-//      * conflicting literal. Done!
-//      */
-
-//     /**
-//      * If terminates with SAT, need to use one of the fulfilling rules
-//      * Do that. Send to SAT solver forget about it.
-//      * If all subsumption requirements met, done. Exit with SAT.
-//      */
-
-//     /**
-//      * What data structures to keep?
-//      *   actual assertions, and our propagations
-//      */
-//     return Result::SAT;
-//   }
-// };/* SetsHelper */
-
 
 TheorySets::TheorySets(context::Context* c,
                        context::UserContext* u,
@@ -388,7 +398,7 @@ TheorySets::~TheorySets()
 void TheorySets::check(Effort level) {
 
   // if(level != EFFORT_FULL) return;
-
+  d_membershipEngine->printAllTermParents();
 
   TNodeSet equalities;
   TNodeSet disequalities;
@@ -399,7 +409,7 @@ void TheorySets::check(Effort level) {
     Assertion assertion = get();
     TNode fact = assertion.assertion;
 
-    Debug("sets") << "TheorySets::check(): processing " << fact << std::endl;
+    Debug("sets") << "[sets] TheorySets::check(): processing " << fact << std::endl;
 
     bool polarity = fact.getKind() != kind::NOT;
     TNode atom = polarity ? fact : fact[0];
@@ -409,8 +419,8 @@ void TheorySets::check(Effort level) {
 
       /* cases for all the theory's kinds go here... */
     case kind::EQUAL:
-      Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
-                    << "be equal to " << atom[1] << std::endl;
+      // Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
+      //               << "be equal to " << atom[1] << std::endl;
       d_equalityEngine.assertEquality(atom, polarity, fact);
       if(!polarity)
         disequalities.insert(atom);
@@ -418,10 +428,9 @@ void TheorySets::check(Effort level) {
         equalities.insert(atom);
       break;
     case kind::IN:
-      Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
-                    << "be in " << atom[1] << std::endl;
+      // Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
+      //               << "be in " << atom[1] << std::endl;
       d_equalityEngine.assertPredicate(atom, polarity, fact);
-      d_membershipEngine->assertMembership(atom[0], atom[1], polarity, fact);
       if(!polarity)
         nonmemberships.insert(atom);
       else
@@ -430,7 +439,18 @@ void TheorySets::check(Effort level) {
     default:
       Unhandled(fact.getKind());
     }
-
+    if(d_conflict) continue;
+    d_membershipEngine->assertFact(fact, fact, /* learnt = */ false);
+    Debug("sets") << "[sets]  in conflict = " << d_membershipEngine->inConflict() << std::endl;
+    if(d_membershipEngine->inConflict()) {
+      Node conflictNode = explain(fact);
+      d_out->conflict(conflictNode);
+    }
+  }
+  Debug("sets") << "[sets]   Completness state: " << d_membershipEngine->checkCompleteness()
+                << std::endl;
+  if(!d_membershipEngine->checkCompleteness()) {
+    d_out->lemma(d_membershipEngine->getLemma());
   }
   return;
 }/* TheorySets::check() */
@@ -449,7 +469,11 @@ Node TheorySets::explain(TNode literal)
   bool polarity = literal.getKind() != kind::NOT;
   TNode atom = polarity ? literal : literal[0];
   std::vector<TNode> assumptions;
-  d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
+  if(atom.getKind() == kind::EQUAL) {
+     d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
+  } else {
+    d_membershipEngine->getCurrentAssertions(assumptions);
+  }
   return mkAnd(assumptions);
 }
 
