@@ -153,6 +153,7 @@ private:
   std::hash_map<TNode, vector<TNode>, TNodeHashFunction> d_termParents;
 
   context::CDO<bool> d_conflict;
+  context::CDO<bool> d_complete;
 
   typedef context::CDHashSet<Node, NodeHashFunction> Collection; // set of sets/elements
   typedef hash_map <TNode, Collection*, TNodeHashFunction> TNodeToCollectionMap;
@@ -173,6 +174,7 @@ public:
     d_context(c),
     d_terms(u),
     d_conflict(c),
+    d_complete(c, true),
     d_assertions(c) {
     // Pending propagations
     // Pending <atom --> subsumption requirements>
@@ -184,6 +186,7 @@ public:
   bool inConflict() { return d_conflict; }
 
   void addTerm(TNode n) {
+    if(n.getKind() == kind::EQUAL || n.getKind() == kind::IN) return;
     d_terms.insert(n);
     for(unsigned i = 0; i < n.getNumChildren(); ++i) {
       d_termParents[n[i]].push_back(n);
@@ -191,7 +194,7 @@ public:
   }
 
   void printTermParents(TNode n) {
-    for(int i = 0; i < d_termParents[n].size(); ++i) {
+    for(unsigned i = 0; i < d_termParents[n].size(); ++i) {
       Debug("sets") << d_termParents[n][i];
     }
   }
@@ -235,7 +238,18 @@ public:
     if(literal.getKind() != kind::EQUAL) {
       TNode x = literal[0];
       TNode S = literal[1];
-      doSettermPropagation(x, S);
+
+      // propagate "down"
+      if(S.getNumChildren() > 0) {
+        doSettermPropagation(x, S);
+        if(d_conflict) return;
+      }
+
+      // propagate "up"
+      for(unsigned i = 0; i < d_termParents[S].size(); ++i) {
+        doSettermPropagation(x, d_termParents[S][i]);
+        if(d_conflict) return;
+      }
     } else {
       // handleEqual(literal);
     }
@@ -243,11 +257,135 @@ public:
     checkInvariants();
   }
 
-  void doSettermPropagation(TNode x, TNode S) {
+  bool doSettermPropagation(TNode x, TNode S) {
     Assert(S.getType().isSet() && S.getType().getSetElementType() == x.getType());
 
     // For now, only handle Union -- others will be similar
     // Let us first commit, then continue.  "Current cursor position"
+    Assert(S.getKind() == kind::UNION);
+
+    TNode left_set = S[0];
+    TNode right_set = S[1];
+
+    Node me = IN(x, S);
+    Node leftAtom = IN(x, left_set);
+    Node rightAtom = IN(x, right_set);
+
+    // state: 0=don't know, 1=yes, -1=no
+    static const int YES = 1, NO = 0, DONTKNOW = 2;
+    int my_state = present(me) ? d_assertions[me].get().polarity : 2;
+    int left_state = present(leftAtom) ? d_assertions[leftAtom].get().polarity : 2;
+    int right_state = present(rightAtom) ? d_assertions[rightAtom].get().polarity : 2;
+
+    Debug("sets-prop") << "[sets-prop] " << x << " in " << S << ": "
+                       << my_state << " " << left_state << " " << right_state
+                       << std::endl;
+
+    Assert(my_state || left_state || right_state);
+
+    // // Axiom:
+    // //   my_state <=> left_state ^ right_state
+    // // For Union, my_state = NO,  left_state = NO,  right_state = NO
+    // // For Inter, my_state = YES, left_state = YES, right_state = YES
+    // // For Diff,  my_state = YES, left_state = YES, right_state = YES
+
+    // // axiom: literal <=> left_literal ^ right_literal
+    // switch(S.getKind()) {
+    // case kind::INTER:
+    //   literal       =       IN(x, S)      ;
+    //   left_literal  =       IN(x, S[0])   ; 
+    //   right_literal =       IN(x, S[1])   ;
+    //   break;
+    // case kind::UNION:
+    //   literal       = NOT(  IN(x, S)     );
+    //   left_literal  = NOT(  IN(x, S[0])  );
+    //   right_literal = NOT(  IN(x, S[1])  );
+    //   break;
+    // case kind::SETMINUS:
+    //   literal       = NOT(  IN(x, S)     );
+    //   left_literal  = NOT(  IN(x, S[0])  );
+    //   right_literal = NOT(  IN(x, S[1])  );
+    //   break;
+    // }
+
+
+    // if( holds(literal) ) {
+    //   // literal => left_literal
+    //   learnLiteral(left_literal);
+
+    //   // literal => right_literal
+    //   learnLiteral(right_literal);
+    // }
+    // else if( holds(literal.negate() ) ) {
+    //   // neg(literal), left_literal => neg(right_literal)
+    //   if( holds(left_literal) )
+    //     learnLiteral(right_literal.negate() );
+
+    //   // neg(literal), right_literal => neg(left_literal)
+    //   if( holds(right_literal) )
+    //     learnLiteral(left_literal.negate() );
+
+    //   // neg(literal) holds, but neither neg(left) nor neg(right) -- incomplete
+    //   if( ! holds(left_literal.negate() ) && ! holds(right_literal.negate() ) )
+    //     { /* Subsumption requirement not met */ }
+    // }
+    // else {
+    //   // neg(left_literal) v neg(right_literal) => neg(literal)
+    //   if(holds(left_literal.negate()) || holds(right_literal.negate()))
+    //     learnLiteral(literal.negate());
+    //   // the axiom itself:
+    //   else if(holds(left_literal) && holds(right_literal))
+    //     learnLiteral(literal);
+    // }
+
+    bool added = false;
+
+    // NO my => NO left, NO right
+    if(my_state == NO) {
+      if(left_state != NO) {
+        added |= learnLiteral(leftAtom, false);
+        if(d_conflict) return false;
+      }
+      if(right_state != NO) {
+        added |= learnLiteral(rightAtom, false);
+        if(d_conflict) return false;
+      }
+      return added;
+    }
+
+    // YES my, {NO left => YES right, NO right => YES left}
+    if(my_state == YES) {
+      if(left_state == NO) {
+        added |= learnLiteral(rightAtom, true);
+        if(d_conflict) return false;
+      }
+      if(right_state == NO) {
+        added |= learnLiteral(leftAtom, true);
+        if(d_conflict) return false;
+      }
+
+      if(left_state == DONTKNOW && right_state == DONTKNOW) {
+        Debug("sets") << "[sets] propagation: not yet complete." << std::endl;
+        // TODO: add to subsumption queue if not already present
+        d_complete = false;
+      }
+      return added;
+    }
+
+    // YES left => YES me; YES right => YES me; (NO left, NO right) => NO me
+    if(my_state == DONTKNOW) {
+      if(left_state == YES || right_state == YES) {
+        added |= learnLiteral(me, true);
+        if(d_conflict) return false;
+      }
+      if(left_state == NO && right_state == NO) {
+        added |= learnLiteral(me, false);
+        if(d_conflict) return false;
+      }
+      return added;
+    }
+
+    return added;
   }
 
   bool checkInvariants() {
