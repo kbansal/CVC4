@@ -143,30 +143,32 @@ public:
                       << ", " << reason
                       << ", " << learnt << std::endl;
 
+    checkInvariants();
+
     vector<TNode> v;
     getCurrentAssertions(v);
 
     bool polarity = fact.getKind() == kind::NOT ? false : true;
-    TNode literal = polarity ? fact : fact[0];
+    TNode atom = polarity ? fact : fact[0];
 
-    if(d_assertions.find(literal) != d_assertions.end()) {
-      if(d_assertions[literal].get().polarity != polarity) {
+    if(present(atom)) {
+      if(d_assertions[atom].get().polarity != polarity) {
         Assert("conflict found");
         d_conflict = true;
       }
       return;
       // Info& literal_info = d_assertions[fact];
     } else {
-      Assert(literal.getNumChildren() == 2);
-      Info literal_info;
-      literal_info.polarity = polarity;
-      literal_info.learnt = learnt;
-      d_assertions[literal] = literal_info;
+      Assert(atom.getNumChildren() == 2);
+      Info atom_info;
+      atom_info.polarity = polarity;
+      atom_info.learnt = learnt;
+      d_assertions[atom] = atom_info;
     }
 
-    if(literal.getKind() != kind::EQUAL) {
-      TNode x = literal[0];
-      TNode S = literal[1];
+    if(atom.getKind() != kind::EQUAL) {
+      TNode x = atom[0];
+      TNode S = atom[1];
 
       // propagate "down"
       if(S.getNumChildren() > 0) {
@@ -179,11 +181,12 @@ public:
         doSettermPropagation(x, d_termParents[S][i]);
         if(d_conflict) return;
       }
+
+      // go over all the equalities to propagate
+      // TODO: propagateEqualities(fact);
     } else {
-      // handleEqual(literal);
-    }
-    
-    checkInvariants();
+      assertEqual(atom[0], atom[1], polarity);
+    }    
   }
 
   void doSettermPropagation(TNode x, TNode S) {
@@ -318,24 +321,6 @@ public:
       learnLiteral(lit[0], false) : learnLiteral(lit, true);
   }
 
-  // A U B <=> A v B
-  // A INT B <=> A ^ B
-  // A \ B <=> A ^ (not B)
-
-  bool applyRule1(TNode n, bool polarity) {
-    bool added = false;
-    if(polarity && n.getKind() == kind::IN 
-       && n[1].getKind() == kind::INTERSECTION) {
-
-      added = learnLiteral(IN(n[0], n[1][0]), polarity);
-      if(d_conflict) return false;
-
-      added |= learnLiteral(IN(n[0], n[1][1]), polarity);
-      if(d_conflict) return false;
-    }
-    return added;
-  }
-
   bool present(TNode n) {
     return d_assertions.find(n) != d_assertions.end();
   }
@@ -344,25 +329,6 @@ public:
     bool polarity = lit.getKind() == kind::NOT ? false : true;
     TNode atom = polarity ? lit : lit[0];
     return present(atom) && d_assertions[atom].get().polarity == polarity;
-  }
-
-  bool checkSubsumption1(TNode n, bool polarity) {
-    if(polarity && n.getKind() == kind::IN
-       && n[1].getKind() == kind::UNION) {
-
-      Node n1 = IN(n[0], n[1][0]);
-      Node n2 = IN(n[0], n[1][1]);
-
-      if(present(n1) && d_assertions[n1].get().polarity == polarity) {
-        return true;
-      }
-      if(present(n2) && d_assertions[n2].get().polarity == polarity) {
-        return true;
-      }
-      d_lemma = OR(n1, n2);
-      return false;
-    }
-    return true;
   }
 
   void addToPending(Node n) {
@@ -386,25 +352,6 @@ public:
     Assert(!present(n));
     Assert(n.getKind() == kind::IN);
     return OR(n, NOT(n));
-  }
-
-  // returns false if a conflict was found, true otherwise
-  bool propagate() {
-    static bool in_propagate = false;
-    if(in_propagate) return true;
-    in_propagate = true;
-    // Step 1: when we get a new assertion, check all rules that might
-    // be relevant
-    bool anyChange = false;
-    do {
-      for(typeof(d_assertions.begin()) i = d_assertions.begin();
-          i != d_assertions.end(); ++i) {
-        anyChange = applyRule1( (*i).first, (*i).second.polarity);
-        if(d_conflict) return false;
-      }
-    }while(anyChange);
-    in_propagate = false;
-    return true;
   }
 
   void getCurrentAssertions(std::vector<TNode>& assumptions) {
