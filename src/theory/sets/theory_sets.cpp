@@ -1,4 +1,5 @@
 #include "context/cdhashset.h"
+#include "context/cdqueue.h"
 #include "theory/sets/theory_sets.h"
 #include "util/result.h"
 
@@ -38,87 +39,6 @@ struct Constraints {
   TNodeSet memberships;
   TNodeSet nonmemberships;
 };
-
-// class Pattern {
-// protected:
-//   bool d_matched;
-//   TNode d_match;
-// public:
-//   Pattern() {}
-//   Pattern(const TNode& n) { match(n); return; }
-//   virtual bool test(TNode n) { return true; }
-//   virtual ~Pattern() {}
-//   bool match(TNode n) {
-//     d_matched = test(n);
-//     if(d_matched) d_match = n;
-//     return d_matched;
-//   }
-//   virtual Node build() { Assert(d_matched); return d_match; }
-// };
-
-// class SetTerm : public Pattern {
-// public:
-//   virtual ~SetTerm() {}
-//   virtual bool test(TNode n) { return kindToTheoryId(n.getKind()) == theory::THEORY_SETS;  }
-// };
-
-// class IN : public Pattern {
-//   Pattern& d_ele, &d_set;
-// public:
-//   IN(Pattern& ele, Pattern& set):d_ele(ele), d_set(set) {}
-//   bool test(TNode n) {
-//     return n.getKind() == kind::IN && d_ele.match(n[0]) && d_set.match(n[1]);
-//   }
-//   Node build() {
-//     NodeManager *nm = NodeManager::currentNM();
-//     return nm->mkNode(kind::IN, d_ele.build(), d_set.build());
-//   }
-// };
-
-// class INTERSECTION : public Pattern {
-//   Pattern& d_seta, &d_setb;
-// public:
-//   INTERSECTION(Pattern& seta, Pattern& setb):d_seta(seta), d_setb(setb) {}
-//   bool test(TNode n) {
-//     return n.getKind() == kind::INTERSECTION && d_seta.match(n[0]) && d_setb.match(n[1]);
-//   }
-//   Node build() {
-//     NodeManager *nm = NodeManager::currentNM();
-//     return nm->mkNode(kind::INTERSECTION, d_seta.build(), d_setb.build());
-//   }
-// };
-
-// class UNION : public Pattern {
-//   Pattern& d_seta, &d_setb;
-// public:
-//   UNION(Pattern& seta, Pattern& setb):d_seta(seta), d_setb(setb) {}
-//   bool test(TNode n) {
-//     return n.getKind() == kind::UNION && d_seta.match(n[0]) && d_setb.match(n[1]);
-//   }
-//   Node build() {
-//     NodeManager *nm = NodeManager::currentNM();
-//     return nm->mkNode(kind::UNION, d_seta.build(), d_setb.build());
-//   }
-// };
-
-// class EQUAL : public Pattern {
-//   Pattern& d_a, &d_b;
-// public:
-//   EQUAL(Pattern& a, Pattern& b):d_a(a), d_b(b) {}
-//   bool test(TNode n) {
-//     return n.getKind() == kind::EQUAL && d_a.match(n[0]) && d_b.match(n[1]);
-//   }
-//   Node build() {
-//     NodeManager *nm = NodeManager::currentNM();
-//     return nm->mkNode(kind::EQUAL, d_a.build(), d_b.build());
-//   }
-// };
-
-// static Node EQUAL(TNode a, TNode b) {
-//   NodeBuilder<kind::EQUAL> nb;
-//   nb << a << b ;
-//   return nb.constructNode();
-// }
 
 static Node OR(TNode a, TNode b) {
   NodeBuilder< > nb(kind::OR);
@@ -165,6 +85,9 @@ private:
 
   context::CDHashMap <Node, Info, NodeHashFunction> d_assertions;
 
+  context::CDQueue <TNode> d_pending;
+  context::CDHashSet <Node, NodeHashFunction> d_pendingEverInserted;
+
   Node d_lemma;
 
 public:
@@ -175,7 +98,9 @@ public:
     d_terms(u),
     d_conflict(c),
     d_complete(c, true),
-    d_assertions(c) {
+    d_assertions(c),
+    d_pending(c),
+    d_pendingEverInserted(c) {
     // Pending propagations
     // Pending <atom --> subsumption requirements>
   }
@@ -186,10 +111,14 @@ public:
   bool inConflict() { return d_conflict; }
 
   void addTerm(TNode n) {
-    if(n.getKind() == kind::EQUAL || n.getKind() == kind::IN) return;
-    d_terms.insert(n);
-    for(unsigned i = 0; i < n.getNumChildren(); ++i) {
-      d_termParents[n[i]].push_back(n);
+    if(n.getKind() == kind::EQUAL || n.getKind() == kind::IN) { 
+      addTerm(n[0]);
+    }
+    else if(d_terms.find(n) == d_terms.end()){
+      d_terms.insert(n);
+      for(unsigned i = 0; i < n.getNumChildren(); ++i) {
+        d_termParents[n[i]].push_back(n);
+      }
     }
   }
 
@@ -257,135 +186,99 @@ public:
     checkInvariants();
   }
 
-  bool doSettermPropagation(TNode x, TNode S) {
+  void doSettermPropagation(TNode x, TNode S) {
     Assert(S.getType().isSet() && S.getType().getSetElementType() == x.getType());
 
-    // For now, only handle Union -- others will be similar
-    // Let us first commit, then continue.  "Current cursor position"
-    Assert(S.getKind() == kind::UNION);
+    Node literal, left_literal, right_literal;
 
-    TNode left_set = S[0];
-    TNode right_set = S[1];
-
-    Node me = IN(x, S);
-    Node leftAtom = IN(x, left_set);
-    Node rightAtom = IN(x, right_set);
-
-    // state: 0=don't know, 1=yes, -1=no
-    static const int YES = 1, NO = 0, DONTKNOW = 2;
-    int my_state = present(me) ? d_assertions[me].get().polarity : 2;
-    int left_state = present(leftAtom) ? d_assertions[leftAtom].get().polarity : 2;
-    int right_state = present(rightAtom) ? d_assertions[rightAtom].get().polarity : 2;
-
-    Debug("sets-prop") << "[sets-prop] " << x << " in " << S << ": "
-                       << my_state << " " << left_state << " " << right_state
-                       << std::endl;
-
-    Assert(my_state || left_state || right_state);
-
-    // // Axiom:
-    // //   my_state <=> left_state ^ right_state
-    // // For Union, my_state = NO,  left_state = NO,  right_state = NO
-    // // For Inter, my_state = YES, left_state = YES, right_state = YES
-    // // For Diff,  my_state = YES, left_state = YES, right_state = YES
-
-    // // axiom: literal <=> left_literal ^ right_literal
-    // switch(S.getKind()) {
-    // case kind::INTER:
-    //   literal       =       IN(x, S)      ;
-    //   left_literal  =       IN(x, S[0])   ; 
-    //   right_literal =       IN(x, S[1])   ;
-    //   break;
-    // case kind::UNION:
-    //   literal       = NOT(  IN(x, S)     );
-    //   left_literal  = NOT(  IN(x, S[0])  );
-    //   right_literal = NOT(  IN(x, S[1])  );
-    //   break;
-    // case kind::SETMINUS:
-    //   literal       = NOT(  IN(x, S)     );
-    //   left_literal  = NOT(  IN(x, S[0])  );
-    //   right_literal = NOT(  IN(x, S[1])  );
-    //   break;
-    // }
-
-
-    // if( holds(literal) ) {
-    //   // literal => left_literal
-    //   learnLiteral(left_literal);
-
-    //   // literal => right_literal
-    //   learnLiteral(right_literal);
-    // }
-    // else if( holds(literal.negate() ) ) {
-    //   // neg(literal), left_literal => neg(right_literal)
-    //   if( holds(left_literal) )
-    //     learnLiteral(right_literal.negate() );
-
-    //   // neg(literal), right_literal => neg(left_literal)
-    //   if( holds(right_literal) )
-    //     learnLiteral(left_literal.negate() );
-
-    //   // neg(literal) holds, but neither neg(left) nor neg(right) -- incomplete
-    //   if( ! holds(left_literal.negate() ) && ! holds(right_literal.negate() ) )
-    //     { /* Subsumption requirement not met */ }
-    // }
-    // else {
-    //   // neg(left_literal) v neg(right_literal) => neg(literal)
-    //   if(holds(left_literal.negate()) || holds(right_literal.negate()))
-    //     learnLiteral(literal.negate());
-    //   // the axiom itself:
-    //   else if(holds(left_literal) && holds(right_literal))
-    //     learnLiteral(literal);
-    // }
-
-    bool added = false;
-
-    // NO my => NO left, NO right
-    if(my_state == NO) {
-      if(left_state != NO) {
-        added |= learnLiteral(leftAtom, false);
-        if(d_conflict) return false;
+    // axiom: literal <=> left_literal ^ right_literal
+    switch(S.getKind()) {
+    case kind::INTERSECTION:
+      literal       =       IN(x, S)      ;
+      left_literal  =       IN(x, S[0])   ; 
+      right_literal =       IN(x, S[1])   ;
+      break;
+    case kind::UNION:
+      literal       = NOT(  IN(x, S)     );
+      left_literal  = NOT(  IN(x, S[0])  );
+      right_literal = NOT(  IN(x, S[1])  );
+      break;
+    case kind::SETMINUS:
+      literal       =       IN(x, S)      ;
+      left_literal  =       IN(x, S[0])   ;
+      right_literal = NOT(  IN(x, S[1])  );
+      break;
+    case kind::SET_SINGLETON:
+      if(holds( IN(x, S) )) {
+        assertEqual(x, S[0], true);
+      } else {
+        assertEqual(x, S[0], false);
       }
-      if(right_state != NO) {
-        added |= learnLiteral(rightAtom, false);
-        if(d_conflict) return false;
-      }
-      return added;
+      break;
+    default:
+      Unhandled();
     }
 
-    // YES my, {NO left => YES right, NO right => YES left}
-    if(my_state == YES) {
-      if(left_state == NO) {
-        added |= learnLiteral(rightAtom, true);
-        if(d_conflict) return false;
-      }
-      if(right_state == NO) {
-        added |= learnLiteral(leftAtom, true);
-        if(d_conflict) return false;
+    Assert( present( IN(x, S)    ) || 
+	    present( IN(x, S[0]) ) || 
+	    present( IN(x, S[1]) ) );
+
+    if( holds(literal) ) {
+      // 1a. literal => left_literal
+      learnLiteral(left_literal);
+      if(d_conflict) return;
+
+      // 1b. literal => right_literal
+      learnLiteral(right_literal);
+      if(d_conflict) return;
+
+      // subsumption requirement met, exit
+      return;
+    }
+    else if( holds(literal.negate() ) ) {
+      // 4. neg(literal), left_literal => neg(right_literal)
+      if( holds(left_literal) ) {
+        learnLiteral(right_literal.negate() );
+        if(d_conflict) return;
       }
 
-      if(left_state == DONTKNOW && right_state == DONTKNOW) {
-        Debug("sets") << "[sets] propagation: not yet complete." << std::endl;
-        // TODO: add to subsumption queue if not already present
-        d_complete = false;
+      // 5. neg(literal), right_literal => neg(left_literal)
+      if( holds(right_literal) ) {
+        learnLiteral(left_literal.negate() );
+        if(d_conflict) return;
       }
-      return added;
+    }
+    else {
+      // 2,3. neg(left_literal) v neg(right_literal) => neg(literal)
+      if(holds(left_literal.negate()) || holds(right_literal.negate())) {
+        learnLiteral(literal.negate());
+        if(d_conflict) return;
+      }
+
+      // 6. the axiom itself:
+      else if(holds(left_literal) && holds(right_literal)) {
+        learnLiteral(literal);
+        if(d_conflict) return;
+      }
     }
 
-    // YES left => YES me; YES right => YES me; (NO left, NO right) => NO me
-    if(my_state == DONTKNOW) {
-      if(left_state == YES || right_state == YES) {
-        added |= learnLiteral(me, true);
-        if(d_conflict) return false;
-      }
-      if(left_state == NO && right_state == NO) {
-        added |= learnLiteral(me, false);
-        if(d_conflict) return false;
-      }
-      return added;
+    // checkFulfillingRule
+    Node n;
+    switch(S.getKind()) {
+    case kind::UNION:
+      if( holds(IN(x, S)) &&  
+	  !present( IN(x, S[0]) ) )
+	addToPending( IN(x, S[0]) );
+      break;
+    case kind::SETMINUS: // intentional fallthrough
+    case kind::INTERSECTION:
+      if( holds(IN(x, S[0])) &&
+	  !present( IN(x, S[1]) ))
+	addToPending( IN(x, S[1]) );
+      break;
+    default:
+      Assert(false, "MembershipEngine::doSettermPropagation");
     }
-
-    return added;
   }
 
   bool checkInvariants() {
@@ -420,6 +313,11 @@ public:
     }
   }
 
+  bool learnLiteral(TNode lit) {
+    return lit.getKind() == kind::NOT ?
+      learnLiteral(lit[0], false) : learnLiteral(lit, true);
+  }
+
   // A U B <=> A v B
   // A INT B <=> A ^ B
   // A \ B <=> A ^ (not B)
@@ -442,6 +340,12 @@ public:
     return d_assertions.find(n) != d_assertions.end();
   }
 
+  bool holds(TNode lit) {
+    bool polarity = lit.getKind() == kind::NOT ? false : true;
+    TNode atom = polarity ? lit : lit[0];
+    return present(atom) && d_assertions[atom].get().polarity == polarity;
+  }
+
   bool checkSubsumption1(TNode n, bool polarity) {
     if(polarity && n.getKind() == kind::IN
        && n[1].getKind() == kind::UNION) {
@@ -461,17 +365,27 @@ public:
     return true;
   }
 
-  bool checkCompleteness() {
-    for(typeof(d_assertions.begin()) i = d_assertions.begin();
-        i != d_assertions.end(); ++i) {
-      bool ret = checkSubsumption1( (*i).first, (*i).second.polarity);
-      if(!ret) return false;
+  void addToPending(Node n) {
+    if(d_pendingEverInserted.find(n) == d_pendingEverInserted.end()) {
+      d_pending.push(n);
+      d_pendingEverInserted.insert(n);
     }
-    return true;
+  }
+
+  bool isComplete() {
+    while(!d_pending.empty() && present(d_pending.front()))
+      d_pending.pop();
+    return d_pending.empty();
   }
 
   Node getLemma() {
-    return d_lemma;
+    Assert(!d_pending.empty());
+    Node n = d_pending.front();
+    d_pending.pop();
+
+    Assert(!present(n));
+    Assert(n.getKind() == kind::IN);
+    return OR(n, NOT(n));
   }
 
   // returns false if a conflict was found, true otherwise
@@ -504,8 +418,12 @@ public:
     }
   }
 
-  void assertEqual(TNode a, TNode b, bool polarity, TNode reason) {
-    
+  void assertEqual(TNode a, TNode b, bool polarity) {
+    // What to do? Just go over all the assertions and replace any
+    // occurence of "a" with b, and "b" with "a".
+
+    // Also, add the equality to the a database. Thus, if anything
+    // ever becomes equal, we'd propagate.
   }
 };
 
@@ -579,15 +497,14 @@ void TheorySets::check(Effort level) {
     }
     if(d_conflict) continue;
     d_membershipEngine->assertFact(fact, fact, /* learnt = */ false);
-    Debug("sets") << "[sets]  in conflict = " << d_membershipEngine->inConflict() << std::endl;
+    Debug("sets") << "[sets]  in conflict = " << d_membershipEngine->inConflict()
+		  << ", is complete = " << d_membershipEngine->isComplete() << std::endl;
     if(d_membershipEngine->inConflict()) {
       Node conflictNode = explain(fact);
       d_out->conflict(conflictNode);
     }
   }
-  Debug("sets") << "[sets]   Completness state: " << d_membershipEngine->checkCompleteness()
-                << std::endl;
-  if(!d_membershipEngine->checkCompleteness()) {
+  if(!d_membershipEngine->isComplete()) {
     d_out->lemma(d_membershipEngine->getLemma());
   }
   return;
