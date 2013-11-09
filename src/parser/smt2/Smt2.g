@@ -828,6 +828,11 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
                              MK_CONST(AscriptionType(dtc.getSpecializedConstructorType(type))), f.getOperator() ));
         v.insert(v.end(), f.begin(), f.end());
         expr = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, v);
+      } else if(f.getKind() == CVC4::kind::EMPTYSET) {
+        Debug("parser") << "Empty set encountered: " << f << " "
+                          << f2 << " " << type <<  std::endl;
+        // TODO: what is f2 about, should we add some assertions?
+        expr = MK_CONST( ::CVC4::EmptySet(type) );
       } else {
         if(f.getType() != type) {
           PARSER_STATE->parseError("Type ascription not satisfied.");
@@ -1022,6 +1027,9 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
 
   | str[s]
     { expr = MK_CONST( ::CVC4::String(s) ); }
+
+  | EMPTYSET_TOK
+    { expr = MK_CONST( ::CVC4::EmptySet()); }
 
     // NOTE: Theory constants go here
   ;
@@ -1648,6 +1656,7 @@ SETMINUS_TOK: 'setminus';
 SETSUB_TOK: 'subset';
 SETIN_TOK: 'in';
 SETSINGLETON_TOK: 'setenum';
+EMPTYSET_TOK: 'emptyset';
 
 /**
  * A sequence of printable ASCII characters (except backslash) that starts

@@ -88,8 +88,6 @@ private:
   context::CDQueue <TNode> d_pending;
   context::CDHashSet <Node, NodeHashFunction> d_pendingEverInserted;
 
-  Node d_lemma;
-
 public:
 
   MembershipEngine(context::Context *c,
@@ -145,18 +143,17 @@ public:
 
     checkInvariants();
 
-    vector<TNode> v;
-    getCurrentAssertions(v);
-
     bool polarity = fact.getKind() == kind::NOT ? false : true;
     TNode atom = polarity ? fact : fact[0];
 
     if(present(atom)) {
       if(d_assertions[atom].get().polarity != polarity) {
-        Assert("conflict found");
+        Debug("sets-mem") << "[sets-mem]  conflict found" << std::endl;
         d_conflict = true;
       }
+
       return;
+
       // Info& literal_info = d_assertions[fact];
     } else {
       Assert(atom.getNumChildren() == 2);
@@ -164,6 +161,13 @@ public:
       atom_info.polarity = polarity;
       atom_info.learnt = learnt;
       d_assertions[atom] = atom_info;
+
+      if(polarity && atom.getKind() == kind::IN &&
+	      atom[1].getKind() == kind::EMPTYSET) {
+	Debug("sets-mem") << "[sets-mem]  something in empty set? conflict." << std::endl;
+	d_conflict = true;
+	return;
+      }
     }
 
     if(atom.getKind() != kind::EQUAL) {

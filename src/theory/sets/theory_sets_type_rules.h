@@ -127,6 +127,17 @@ struct SetSingletonTypeRule {
   }
 };/* struct SetInTypeRule */
 
+struct EmptySetTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
+
+    Assert(n.getKind() == kind::EMPTYSET);
+    EmptySet emptySet = n.getConst<EmptySet>();
+    Type setType = emptySet.getType();
+    return TypeNode::fromType(setType);
+  }
+};
+
 
 struct SetsProperties {
   inline static Cardinality computeCardinality(TypeNode type) {
