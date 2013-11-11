@@ -1653,7 +1653,7 @@ RERANGE_TOK : 're.range';
 SETUNION_TOK: 'union';
 SETINT_TOK: 'intersection';
 SETMINUS_TOK: 'setminus';
-SETSUB_TOK: 'subset';
+SETSUB_TOK: 'subseteq';
 SETIN_TOK: 'in';
 SETSINGLETON_TOK: 'setenum';
 EMPTYSET_TOK: 'emptyset';
