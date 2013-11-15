@@ -24,6 +24,10 @@ operator SET_TYPE 1 "set type"   # the type
 cardinality SET_TYPE \
     "::CVC4::theory::sets::SetsProperties::computeCardinality(%TYPE%)" \
     "theory/sets/theory_sets_type_rules.h"
+well-founded SET_TYPE \
+    "::CVC4::theory::sets::SetsProperties::isWellFounded(%TYPE%)" \
+    "::CVC4::theory::sets::SetsProperties::mkGroundTerm(%TYPE%)" \
+    "theory/sets/theory_sets_type_rules.h"
 
 # operators...
 operator UNION 2 "set union"

@@ -158,7 +158,10 @@ public:
       TNode S = atom[1];
 
       Debug("sets-prop") << "[sets-prop] Propagating 'down' " << std::endl;
-      if(S.getNumChildren() > 0) {
+      if(S.getKind() == kind::UNION ||
+         S.getKind() == kind::INTERSECTION ||
+         S.getKind() == kind::SETMINUS || 
+         S.getKind() == kind::SET_SINGLETON) {
         doSettermPropagation(x, S);
         if(d_conflict) return;
       }
@@ -213,7 +216,9 @@ public:
       right_literal = NOT(  IN(x, S[1])  );
       break;
     case kind::SET_SINGLETON:
-      learnLiteral(EQUAL(x, S[0]), holds( IN(x,S) ));
+      if(not (x == S[0] && holds(IN(x, S)))) {
+        learnLiteral(EQUAL(x, S[0]), holds( IN(x,S) ));
+      }
       return;
     default:
       Unhandled();
@@ -296,8 +301,7 @@ public:
     return ret;
   }
 
-  // returns true if something was added
-  bool learnLiteral(TNode atom, bool polarity) {
+  void learnLiteral(TNode atom, bool polarity) {
     Debug("sets-learn") << "[sets-learn] learnLiteral(" << atom
                         << ", " << polarity << ")" << std::endl;
     if(d_assertions.find(atom) != d_assertions.end()) {
@@ -305,20 +309,25 @@ public:
         Debug("sets-learn") << "conflict found" << std::endl;
         d_conflict = true;
       }
-      return false;
     } else {
       Node learnt_literal = polarity ? Node(atom) : NOT(atom);
-      assertFact(learnt_literal, learnt_literal, /* learnt = */ true);
+      if(d_conflict) return;
       if(atom.getKind() == kind::EQUAL) {
-        d_equalityEngine.assertEquality(atom, polarity, learnt_literal);
+        vector<TNode> ass;
+        getCurrentAssertions(ass);
+        d_equalityEngine.assertEquality(atom, polarity, mkAnd(ass));
+        if(!d_equalityEngine.consistent()) d_conflict = true;
       }
-      return true;
+      assertFact(learnt_literal, learnt_literal, /* learnt = */ true);
     }
   }
 
-  bool learnLiteral(TNode lit) {
-    return lit.getKind() == kind::NOT ?
-      learnLiteral(lit[0], false) : learnLiteral(lit, true);
+  void learnLiteral(TNode lit) {
+    if(lit.getKind() == kind::NOT) {
+      learnLiteral(lit[0], false);
+    } else {
+      learnLiteral(lit, true);
+    }
   }
 
   bool present(TNode atom) {
@@ -445,6 +454,8 @@ void TheorySets::check(Effort level) {
     // Do the work
     switch(atom.getKind()) {
 
+    case kind::IFF:
+      Assert(false);
     case kind::EQUAL:
       Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
                     << "be equal to " << atom[1] << std::endl;
@@ -494,10 +505,13 @@ Node TheorySets::explain(TNode literal)
   bool polarity = literal.getKind() != kind::NOT;
   TNode atom = polarity ? literal : literal[0];
   std::vector<TNode> assumptions;
-  if(atom.getKind() == kind::EQUAL) {
+  if(!d_equalityEngine.consistent() && (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) ) {
      d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
-  } else {
+  } else if(d_membershipEngine->inConflict()) {
     d_membershipEngine->getCurrentAssertions(assumptions);
+  } else {
+    Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " << polarity << "); kind" << atom.getKind() << std::endl;
+    Unhandled();
   }
   return mkAnd(assumptions);
 }

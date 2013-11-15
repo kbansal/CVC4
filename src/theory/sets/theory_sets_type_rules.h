@@ -145,6 +145,15 @@ struct SetsProperties {
     Cardinality elementCard = type[0].getCardinality();
     return elementCard;
   }
+
+  inline static bool isWellFounded(TypeNode type) {
+    return type[0].isWellFounded();
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.isSet());
+    return NodeManager::currentNM()->mkConst(EmptySet(type.toType()));
+  }
 };
 
 }/* CVC4::theory::sets namespace */
