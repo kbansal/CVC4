@@ -202,6 +202,10 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       break;
     }
 
+    case kind::EMPTYSET:
+      out << "(as emptyset " << n.getConst<EmptySet>().getType() << ")";
+      break;
+
     default:
       // fall back on whatever operator<< does on underlying type; we
       // might luck out and be SMT-LIB v2 compliant
@@ -327,8 +331,8 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::IN:
   case kind::SET_TYPE:
   case kind::SET_SINGLETON: out << smtKindString(k) << " "; break;
-
-    // datatypes
+ 
+   // datatypes
   case kind::APPLY_TYPE_ASCRIPTION: {
       out << "as ";
       toStream(out, n[0], toDepth < 0 ? toDepth : toDepth - 1, types);

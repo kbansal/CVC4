@@ -8,7 +8,7 @@ theory THEORY_SETS ::CVC4::theory::sets::TheorySets "theory/sets/theory_sets.h"
 typechecker "theory/sets/theory_sets_type_rules.h"
 rewriter ::CVC4::theory::sets::TheorySetsRewriter "theory/sets/theory_sets_rewriter.h"
 
-properties check
+properties check presolve postsolve
 
 # Theory content goes here.
 
@@ -28,6 +28,9 @@ well-founded SET_TYPE \
     "::CVC4::theory::sets::SetsProperties::isWellFounded(%TYPE%)" \
     "::CVC4::theory::sets::SetsProperties::mkGroundTerm(%TYPE%)" \
     "theory/sets/theory_sets_type_rules.h"
+enumerator SET_TYPE \
+    "::CVC4::theory::sets::SetEnumerator" \
+    "theory/sets/theory_sets_type_enumerator.h"
 
 # operators...
 operator UNION 2 "set union"

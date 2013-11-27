@@ -10,7 +10,8 @@ libsets_la_SOURCES = \
 	theory_sets.cpp \
 	theory_sets_rewriter.h \
 	theory_sets_rewriter.cpp \
-	theory_sets_type_rules.h
+	theory_sets_type_rules.h \
+	theory_set_type_enumerator.h
 
 EXTRA_DIST = \
 	kinds \
