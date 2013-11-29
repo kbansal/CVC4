@@ -78,17 +78,6 @@ public:
   }
 
   void preSolve() {
-    // d_terms.clear();
-    // Assert(d_terms.empty());
-    // d_termParents.clear();
-    // for(typeof(d_terms.begin()) i = d_terms.begin();
-    //     i != d_terms.end(); ++i) {
-    //   TNode n = *i;
-    //   if(n.getKind() == kind::SET_SINGLETON) {
-    //     learnLiteral(IN(n[0], n));
-    //     d_terms.insert(IN(n[0], n));
-    //   }
-    // }
   }
 
   void postSolve() {
@@ -125,7 +114,8 @@ public:
       if(d_assertions[atom].get().polarity != polarity) {
 
         if(!learnt) {
-          Assert(d_assertions[atom].get().learnt, "Theory asserted both literal and negation?");
+          Assert(d_assertions[atom].get().learnt,
+                 "Theory asserted both literal and negation?");
           Info new_info;
           new_info.polarity = polarity;
           new_info.learnt = learnt;
@@ -170,34 +160,43 @@ public:
       for(unsigned i = 0; i < d_termParents[S].size(); ++i) {
         if(d_terms.find(d_termParents[S][i]) == d_terms.end()) {
           Debug("sets-context") << "[sets-context] Skipping propagating up to "
-                                << d_termParents[S][i] << " since term appears to have disappeared since it has been added. ";
+                                << d_termParents[S][i] << " since term appears to "
+                                << "have disappeared since it has been added.\n";
           continue;
         }
         doSettermPropagation(x, d_termParents[S][i]);
         if(d_conflict) return;
       }
 
-      Debug("sets-prop") << "[sets-prop] Propagating 'eq' on element" << d_equalityEngine.getRepresentative(atom[0]) << std::endl;
-      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), &d_equalityEngine);
-          !i.isFinished(); ++i) {
+      Debug("sets-prop") << "[sets-prop] Propagating 'eq' on element"
+                         << d_equalityEngine.getRepresentative(atom[0]) << std::endl;
+      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
+                                &d_equalityEngine); !i.isFinished(); ++i) {
+
         Debug("sets-prop-eq") << "[sets-prop-eq] " << fact << " : element : "
                               << d_equalityEngine.getRepresentative(atom[0]) << " "
                               << (*i) << std::endl;
         if( (*i) == atom[0] ) continue; // does this ever happen?
         learnLiteral(IN(*i, atom[1]), polarity);
         if(d_conflict) return;
+
       }
 
-      Debug("sets-prop") << "[sets-prop] Propagating 'eq' on set : " << d_equalityEngine.getRepresentative(atom[1]) << std::endl;
-      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[1]), &d_equalityEngine);
-          !i.isFinished(); ++i) {
+      Debug("sets-prop") << "[sets-prop] Propagating 'eq' on set : "
+                         << d_equalityEngine.getRepresentative(atom[1])
+                         << std::endl;
+      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[1]),
+                                &d_equalityEngine); !i.isFinished(); ++i) {
+
         Debug("sets-prop-eq") << "[sets-prop-eq] " << fact << " : set : "
                               << d_equalityEngine.getRepresentative(atom[1]) << " "
                               << (*i) << std::endl;
         if( (*i) == atom[1] ) continue; // does this ever happen?
         learnLiteral(IN(atom[0], *i), polarity);
         if(d_conflict) return;
+
       }
+
     } else if(atom.getKind() == kind::EQUAL) {
       if(polarity) {
         assertEqual(atom[0], atom[1], polarity);
@@ -512,9 +511,9 @@ void TheorySets::check(Effort level) {
       break;
 
     case kind::IN:
-      // Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
-      //               << "be in " << atom[1] << std::endl;
-      // d_equalityEngine.assertPredicate(atom, polarity, fact);
+      Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
+                    << "be in " << atom[1] << std::endl;
+      d_equalityEngine.assertPredicate(atom, polarity, fact);
       break;
 
     default:
