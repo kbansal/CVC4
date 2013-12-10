@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Dejan Jovanovic
  ** Major contributors: Morgan Deters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -73,6 +73,10 @@ bool NodeTemplate<ref_count>::isConst() const {
     Debug("isConst") << "Node::isConst() returning false, it's a VARIABLE" << std::endl;
     return false;
   default:
+    if(expr::TypeChecker::neverIsConst(NodeManager::currentNM(), *this)){
+      Debug("isConst") << "Node::isConst() returning false, the kind is never const" << std::endl;
+      return false;
+    }
     if(getAttribute(IsConstComputedAttr())) {
       bool bval = getAttribute(IsConstAttr());
       Debug("isConst") << "Node::isConst() returning cached value " << (bval ? "true" : "false") << " for: " << *this << std::endl;

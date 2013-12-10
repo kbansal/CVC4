@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Christopher L. Conway
  ** Major contributors: none
- ** Minor contributors (to current version): Morgan Deters
+ ** Minor contributors (to current version): Tim King, Morgan Deters
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -105,7 +105,8 @@ public:
 
   void testMkAssociative3() {
     try {
-      unsigned int numVars = d_exprManager->maxArity(AND) + 1;
+      //unsigned int numVars = d_exprManager->maxArity(AND) + 1;
+      unsigned int numVars = (1<<16) + 1;
       std::vector<Expr> vars = mkVars(d_exprManager->booleanType(), numVars);
       Expr n = d_exprManager->mkAssociative(AND,vars);
       checkAssociative(n,AND,numVars);

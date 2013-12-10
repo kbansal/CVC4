@@ -3,8 +3,8 @@
  ** \verbatim
  ** Original author: Tianyi Liang
  ** Major contributors: none
- ** Minor contributors (to current version): none
- ** This file is part of the CVC4 prototype.
+ ** Minor contributors (to current version): Morgan Deters
+ ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
@@ -219,13 +219,13 @@ public:
 
 namespace strings {
 
-struct StringHashFunction {
+struct CVC4_PUBLIC StringHashFunction {
   size_t operator()(const ::CVC4::String& s) const {
     return __gnu_cxx::hash<const char*>()(s.toString().c_str());
   }
 };/* struct StringHashFunction */
 
-}
+}/* CVC4::strings namespace */
 
 inline std::ostream& operator <<(std::ostream& os, const String& s) CVC4_PUBLIC;
 inline std::ostream& operator <<(std::ostream& os, const String& s) {
@@ -296,7 +296,7 @@ public:
     return d_str;
   }
 
-};/* class String */
+};/* class RegExp */
 
 /**
  * Hash function for the RegExp constants.
@@ -311,6 +311,7 @@ inline std::ostream& operator <<(std::ostream& os, const RegExp& s) CVC4_PUBLIC;
 inline std::ostream& operator <<(std::ostream& os, const RegExp& s) {
   return os << s.toString();
 }
+
 }/* CVC4 namespace */
 
-#endif /* __CVC4__STRING_H */
+#endif /* __CVC4__REGEXP_H */

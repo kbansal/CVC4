@@ -1,11 +1,11 @@
 /*********************                                                        */
-/*! \file regexp_operation.CPP
+/*! \file regexp_operation.cpp
  ** \verbatim
  ** Original author: Tianyi Liang
- ** Major contributors: Tianyi Liang, Andrew Reynolds
+ ** Major contributors: none
  ** Minor contributors (to current version): none
- ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2013-2013  New York University and The University of Iowa
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
@@ -28,6 +28,14 @@ RegExpOpr::RegExpOpr() {
 	d_char_end = 'c';//'~';
 	d_sigma = mkAllExceptOne( '\0' );
 	d_sigma_star = NodeManager::currentNM()->mkNode( kind::REGEXP_STAR, d_sigma );
+}
+
+int RegExpOpr::gcd ( int a, int b ) {
+  int c;
+  while ( a != 0 ) {
+     c = a; a = b%a;  b = c;
+  }
+  return b;
 }
 
 bool RegExpOpr::checkConstRegExp( Node r ) {
@@ -237,7 +245,7 @@ Node RegExpOpr::derivativeSingle( Node r, CVC4::String c ) {
 							vec_nodes.push_back( dc );
 						}
 					}
-					Trace("strings-regexp-derivative") << "RegExp-derivative OR R[" << i << "]{ " << mkString(r[i]) << " returns " << (dc.isNull() ?  "NULL" : mkString(dc) ) << std::endl;
+					Trace("strings-regexp-derivative") << "RegExp-derivative OR R[" << i << "]{ " << mkString(r[i]) << " returns " << mkString(dc) << std::endl;
 				}
 				retNode = vec_nodes.size() == 0 ? Node::null() :
 							( vec_nodes.size()==1 ? vec_nodes[0] : NodeManager::currentNM()->mkNode( kind::REGEXP_OR, vec_nodes ) );
@@ -321,8 +329,78 @@ Node RegExpOpr::derivativeSingle( Node r, CVC4::String c ) {
 		}
 		d_dv_cache[dv] = retNode;
 	}
-	Trace("strings-regexp-derivative") << "RegExp-derivative returns : " << ( retNode.isNull() ? "NULL" : mkString( retNode ) )  << std::endl;
+	Trace("strings-regexp-derivative") << "RegExp-derivative returns : " << mkString( retNode ) << std::endl;
 	return retNode;
+}
+
+//TODO:
+bool RegExpOpr::guessLength( Node r, int &co ) {
+	int k = r.getKind();
+	switch( k ) {
+		case kind::STRING_TO_REGEXP:
+		{
+			if(r[0].isConst()) {
+				co += r[0].getConst< CVC4::String >().size();
+				return true;
+			} else {
+				return false;
+			}
+		}
+			break;
+		case kind::REGEXP_CONCAT:
+		{
+			for(unsigned i=0; i<r.getNumChildren(); ++i) {
+				if(!guessLength( r[i], co)) {
+					return false;
+				}
+			}
+			return true;
+		}
+			break;
+		case kind::REGEXP_OR:
+		{
+			int g_co;
+			for(unsigned i=0; i<r.getNumChildren(); ++i) {
+				int cop = 0;
+				if(!guessLength( r[i], cop)) {
+					return false;
+				}
+				if(i == 0) {
+					g_co = cop;
+				} else {
+					g_co = gcd(g_co, cop);
+				}
+			}
+			return true;
+		}
+			break;
+		case kind::REGEXP_INTER:
+		{
+			int g_co;
+			for(unsigned i=0; i<r.getNumChildren(); ++i) {
+				int cop = 0;
+				if(!guessLength( r[i], cop)) {
+					return false;
+				}
+				if(i == 0) {
+					g_co = cop;
+				} else {
+					g_co = gcd(g_co, cop);
+				}
+			}
+			return true;
+		}
+			break;
+		case kind::REGEXP_STAR:
+		{
+			co = 0;
+			return true;
+		}
+			break;
+		default:
+			Trace("strings-error") << "Unsupported term: " << mkString( r ) << " in membership of RegExp." << std::endl;
+			return false;
+	}
 }
 
 void RegExpOpr::firstChar( Node r ) {
@@ -577,79 +655,83 @@ std::string RegExpOpr::niceChar( Node r ) {
 }
 std::string RegExpOpr::mkString( Node r ) {
 	std::string retStr;
-	int k = r.getKind();
-	switch( k ) {
-		case kind::STRING_TO_REGEXP:
-		{
-			retStr += niceChar( r[0] );
-		}
-			break;
-		case kind::REGEXP_CONCAT:
-		{
-			retStr += "(";
-			for(unsigned i=0; i<r.getNumChildren(); ++i) {
-				if(i != 0) retStr += ".";
-				retStr += mkString( r[i] );
+	if(r.isNull()) {
+		retStr = "EmptySet";
+	} else {
+		int k = r.getKind();
+		switch( k ) {
+			case kind::STRING_TO_REGEXP:
+			{
+				retStr += niceChar( r[0] );
 			}
-			retStr += ")";
-		}
-			break;
-		case kind::REGEXP_OR:
-		{
-			if(r == d_sigma) {
-				retStr += "{A}";
-			} else {
+				break;
+			case kind::REGEXP_CONCAT:
+			{
 				retStr += "(";
 				for(unsigned i=0; i<r.getNumChildren(); ++i) {
-					if(i != 0) retStr += "|";
+					if(i != 0) retStr += ".";
 					retStr += mkString( r[i] );
 				}
 				retStr += ")";
 			}
-		}
-			break;
-		case kind::REGEXP_INTER:
-		{
-			retStr += "(";
-			for(unsigned i=0; i<r.getNumChildren(); ++i) {
-				if(i != 0) retStr += "&";
-				retStr += mkString( r[i] );
+				break;
+			case kind::REGEXP_OR:
+			{
+				if(r == d_sigma) {
+					retStr += "{A}";
+				} else {
+					retStr += "(";
+					for(unsigned i=0; i<r.getNumChildren(); ++i) {
+						if(i != 0) retStr += "|";
+						retStr += mkString( r[i] );
+					}
+					retStr += ")";
+				}
 			}
-			retStr += ")";
+				break;
+			case kind::REGEXP_INTER:
+			{
+				retStr += "(";
+				for(unsigned i=0; i<r.getNumChildren(); ++i) {
+					if(i != 0) retStr += "&";
+					retStr += mkString( r[i] );
+				}
+				retStr += ")";
+			}
+				break;
+			case kind::REGEXP_STAR:
+			{
+				retStr += mkString( r[0] );
+				retStr += "*";
+			}
+				break;
+			case kind::REGEXP_PLUS:
+			{
+				retStr += mkString( r[0] );
+				retStr += "+";
+			}
+				break;
+			case kind::REGEXP_OPT:
+			{
+				retStr += mkString( r[0] );
+				retStr += "?";
+			}
+				break;
+			case kind::REGEXP_RANGE:
+			{
+				retStr += "[";
+				retStr += niceChar( r[0] );
+				retStr += "-";
+				retStr += niceChar( r[1] );
+				retStr += "]";
+			}
+				break;
+			default:
+				//TODO: special sym: sigma, none, all
+				Trace("strings-error") << "Unsupported term: " << r << " in RegExp." << std::endl;
+				//AlwaysAssert( false );
+				//return Node::null();
 		}
-			break;
-		case kind::REGEXP_STAR:
-		{
-			retStr += mkString( r[0] );
-			retStr += "*";
-		}
-			break;
-		case kind::REGEXP_PLUS:
-		{
-			retStr += mkString( r[0] );
-			retStr += "+";
-		}
-			break;
-		case kind::REGEXP_OPT:
-		{
-			retStr += mkString( r[0] );
-			retStr += "?";
-		}
-			break;
-		case kind::REGEXP_RANGE:
-		{
-			retStr += "[";
-			retStr += niceChar( r[0] );
-			retStr += "-";
-			retStr += niceChar( r[1] );
-			retStr += "]";
-		}
-			break;
-		default:
-			//TODO: special sym: sigma, none, all
-			Trace("strings-error") << "Unsupported term: " << r << " in RegExp." << std::endl;
-			//AlwaysAssert( false );
-			//return Node::null();
 	}
 
 	return retStr;

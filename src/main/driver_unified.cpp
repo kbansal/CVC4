@@ -194,7 +194,9 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   pExecutor = new CommandExecutor(*exprMgr, opts);
 # else
   vector<Options> threadOpts = parseThreadSpecificOptions(opts);
-  if(opts[options::incrementalSolving] && !opts[options::incrementalParallel]) {
+  if(opts.wasSetByUser(options::incrementalSolving) &&
+     opts[options::incrementalSolving] &&
+     !opts[options::incrementalParallel]) {
     Notice() << "Notice: In --incremental mode, using the sequential solver unless forced by...\n"
              << "Notice: ...the experimental --incremental-parallel option.\n";
     exprMgr = new ExprManager(opts);
@@ -264,6 +266,12 @@ int runCvc4(int argc, char* argv[], Options& opts) {
         delete cmd;
       }
     } else {
+      if(!opts.wasSetByUser(options::incrementalSolving)) {
+        cmd = new SetOptionCommand("incremental", false);
+        pExecutor->doCommand(cmd);
+        delete cmd;
+      }
+
       ParserBuilder parserBuilder(exprMgr, filename, opts);
 
       if( inputFromStdin ) {
@@ -300,14 +308,7 @@ int runCvc4(int argc, char* argv[], Options& opts) {
     Result result;
     if(status) {
       result = pExecutor->getResult();
-
-      if(result.asSatisfiabilityResult() == Result::SAT) {
-        returnValue = 10;
-      } else if(result.asSatisfiabilityResult() == Result::UNSAT) {
-        returnValue = 20;
-      } else {
-        returnValue = 0;
-      }
+      returnValue = 0;
     } else {
       // there was some kind of error
       returnValue = 1;

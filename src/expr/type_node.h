@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Dejan Jovanovic
  ** Major contributors: Morgan Deters
- ** Minor contributors (to current version): Clark Barrett, Andrew Reynolds, Tim King
+ ** Minor contributors (to current version): Clark Barrett, Andrew Reynolds, Tianyi Liang, Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -239,7 +239,7 @@ public:
    *
    * @return the id
    */
-  inline unsigned getId() const {
+  inline unsigned long getId() const {
     return d_nv->getId();
   }
 

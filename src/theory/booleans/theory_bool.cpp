@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Morgan Deters
  ** Major contributors: Dejan Jovanovic
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): Clark Barrett
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -38,7 +38,7 @@ Theory::PPAssertStatus TheoryBool::ppAssert(TNode in, SubstitutionMap& outSubsti
     return PP_ASSERT_STATUS_CONFLICT;
   }
 
-  // Add the substitution from the variable to it's value
+  // Add the substitution from the variable to its value
   if (in.getKind() == kind::NOT) {
     if (in[0].getKind() == kind::VARIABLE) {
       outSubstitutions.addSubstitution(in[0], NodeManager::currentNM()->mkConst<bool>(false));

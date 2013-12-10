@@ -2,8 +2,8 @@
 /*! \file command.cpp
  ** \verbatim
  ** Original author: Morgan Deters
- ** Major contributors: Francois Bobot
- ** Minor contributors (to current version): Kshitij Bansal, Dejan Jovanovic, Andrew Reynolds
+ ** Major contributors: none
+ ** Minor contributors (to current version): Kshitij Bansal, Dejan Jovanovic, Andrew Reynolds, Francois Bobot
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -29,7 +29,7 @@
 #include "util/output.h"
 #include "util/dump.h"
 #include "util/sexpr.h"
-#include "util/util_model.h"
+#include "util/model.h"
 #include "expr/node.h"
 #include "printer/printer.h"
 
@@ -1257,6 +1257,9 @@ void GetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
     v.push_back(SExpr(SExpr::Keyword(string(":") + d_flag)));
     v.push_back(smtEngine->getInfo(d_flag));
     stringstream ss;
+    if(d_flag == "all-options" || d_flag == "all-statistics") {
+      ss << PrettySExprs(true);
+    }
     ss << SExpr(v);
     d_result = ss.str();
     d_commandStatus = CommandSuccess::instance();

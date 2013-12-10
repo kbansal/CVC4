@@ -2,7 +2,7 @@
 /*! \file theory_bv_type_rules.h
  ** \verbatim
  ** Original author: Dejan Jovanovic
- ** Major contributors: Liana Hadarean, Morgan Deters, Christopher L. Conway
+ ** Major contributors: Liana Hadarean, Christopher L. Conway, Morgan Deters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
@@ -137,6 +137,15 @@ public:
       }
     }
     return nodeManager->mkBitVectorType(extractInfo.high - extractInfo.low + 1);
+  }
+};
+
+class BitVectorExtractOpTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    Assert(n.getKind() == kind::BITVECTOR_EXTRACT_OP);
+    return nodeManager->builtinOperatorType();
   }
 };
 

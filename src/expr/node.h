@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Dejan Jovanovic
  ** Major contributors: Morgan Deters
- ** Minor contributors (to current version): Francois Bobot, Tim King, Clark Barrett, Christopher L. Conway
+ ** Minor contributors (to current version): Kshitij Bansal, Francois Bobot, Clark Barrett, Tim King, Christopher L. Conway
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -182,7 +182,7 @@ class NodeTemplate {
   friend class expr::NodeValue;
 
   friend class expr::pickle::PicklerPrivate;
-  friend Node expr::exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap, uint32_t flags);
+  friend class expr::ExportPrivate;
 
   /** A convenient null-valued encapsulated pointer */
   static NodeTemplate s_null;
@@ -466,7 +466,7 @@ public:
    * Returns the unique id of this node
    * @return the ud
    */
-  unsigned getId() const {
+  unsigned long getId() const {
     assertTNodeNotExpired();
     return d_nv->getId();
   }
@@ -564,6 +564,14 @@ public:
    */
   template <class T>
   inline const T& getConst() const;
+
+  /**
+   * Returns the reference count of this node.
+   * @return the refcount
+   */
+  unsigned getRefCount() const {
+    return d_nv->getRefCount();
+  }
 
   /**
    * Returns the value of the given attribute that this has been attached.

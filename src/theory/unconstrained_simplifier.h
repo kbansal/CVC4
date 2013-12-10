@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Clark Barrett
  ** Major contributors: none
- ** Minor contributors (to current version): Morgan Deters
+ ** Minor contributors (to current version): Morgan Deters, Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -24,10 +24,13 @@
 #include <utility>
 
 #include "expr/node.h"
-#include "theory/theory.h"
 #include "theory/substitutions.h"
+#include "util/statistics_registry.h"
 
 namespace CVC4 {
+
+/* Forward Declarations */
+class LogicInfo;
 
 class UnconstrainedSimplifier {
 

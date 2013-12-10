@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 m4_define(_CVC4_MAJOR,          1)       dnl version (major)
-m4_define(_CVC4_MINOR,          3)       dnl version (minor)
+m4_define(_CVC4_MINOR,          4)       dnl version (minor)
 m4_define(_CVC4_RELEASE,        0)       dnl version (alpha)
 m4_define(_CVC4_EXTRAVERSION,   [-prerelease])      dnl version (extra)
 m4_define(_CVC4_RELEASE_STRING, _CVC4_MAJOR[.]_CVC4_MINOR[]m4_if(_CVC4_RELEASE,[0],,[.]_CVC4_RELEASE)_CVC4_EXTRAVERSION) dnl version string
@@ -762,7 +762,13 @@ typedef pb_ds::priority_queue<void, void, void> pq;])],
     #include <ext/pb_ds/priority_queue.hpp>
     typedef __gnu_pbds::priority_queue<void, void, void> pq;])],
       [CVC4_PB_DS_NAMESPACE=__gnu_pbds],
-      [AC_MSG_ERROR([cannot find required priority_queue in either __gnu_pbds or pb_ds namespace])])])
+      [AC_MSG_ERROR([cannot find required priority_queue in either __gnu_pbds or pb_ds namespace.
+
+If you're using a non-GCC compiler (such as clang), you may need to explicitly
+use the GNU standard C++ library by passing:
+    CXXFLAGS='-stdlib=libstdc++' CPPFLAGS='-stdlib=libstdc++'
+as arguments to this configure script.
+This is the case on Mac OS Mavericks, for example.])])])
 AC_LANG_POP([C++])
 AC_MSG_RESULT([$CVC4_PB_DS_NAMESPACE])
 AC_DEFINE_UNQUOTED(CVC4_PB_DS_NAMESPACE, ${CVC4_PB_DS_NAMESPACE}, [The namespace for pb_ds data structures.])

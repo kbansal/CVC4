@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Christopher L. Conway
  ** Major contributors: Morgan Deters
- ** Minor contributors (to current version): Dejan Jovanovic, Andrew Reynolds, Francois Bobot, Tianyi Liang
+ ** Minor contributors (to current version): Dejan Jovanovic, Tianyi Liang, Andrew Reynolds, Francois Bobot
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -236,6 +236,9 @@ command returns [CVC4::Command* cmd = NULL]
       $cmd = new SetBenchmarkLogicCommand(name); }
   | SET_INFO_TOK KEYWORD symbolicExpr[sexpr]
     { name = AntlrInput::tokenText($KEYWORD);
+      if(name == ":cvc4-logic" || name == ":cvc4_logic") {
+        PARSER_STATE->setLogic(sexpr.getValue());
+      }
       PARSER_STATE->setInfo(name.c_str() + 1, sexpr);
       cmd = new SetInfoCommand(name.c_str() + 1, sexpr); }
   | /* get-info */
@@ -705,11 +708,11 @@ simpleSymbolicExprNoKeyword[CVC4::SExpr& sexpr]
     { sexpr = SExpr(AntlrInput::tokenToRational($DECIMAL_LITERAL)); }
   | str[s]
     { sexpr = SExpr(s); }
-//  | LPAREN_TOK STRCST_TOK 
-//      ( INTEGER_LITERAL { 
+//  | LPAREN_TOK STRCST_TOK
+//      ( INTEGER_LITERAL {
 //	    s_vec.push_back( atoi( AntlrInput::tokenText($INTEGER_LITERAL) ) + 65 );
 //	  } )* RPAREN_TOK
-//   { 
+//   {
 //	sexpr = SExpr( MK_CONST( ::CVC4::String(s_vec) ) );
 //	}
   | symbol[s,CHECK_NONE,SYM_SORT]

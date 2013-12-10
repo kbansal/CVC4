@@ -2,7 +2,7 @@
 /*! \file decision_attributes.h
  ** \verbatim
  ** Original author: Kshitij Bansal
- ** Major contributors: none
+ ** Major contributors: Morgan Deters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
@@ -14,8 +14,10 @@
  ** Rewriter attributes.
  **/
 
-#ifndef __CVC4__THEORY__DECISION_ATRRIBUTES
-#define __CVC4__THEORY__DECISION_ATRRIBUTES
+#include "cvc4_private.h"
+
+#ifndef __CVC4__THEORY__DECISION_ATTRIBUTES
+#define __CVC4__THEORY__DECISION_ATTRIBUTES
 
 #include "expr/attribute.h"
 
@@ -33,4 +35,4 @@ typedef expr::Attribute<attr::DecisionWeightTag, decision::DecisionWeight> Decis
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__DECISION_ATRRIBUTES */
+#endif /* __CVC4__THEORY__DECISION_ATTRIBUTES */

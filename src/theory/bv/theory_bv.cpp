@@ -2,8 +2,8 @@
 /*! \file theory_bv.cpp
  ** \verbatim
  ** Original author: Dejan Jovanovic
- ** Major contributors: Morgan Deters, Liana Hadarean, lianah
- ** Minor contributors (to current version): Tim King, Andrew Reynolds, Clark Barrett
+ ** Major contributors: Morgan Deters, Liana Hadarean
+ ** Minor contributors (to current version): Tim King, Kshitij Bansal, Clark Barrett, Andrew Reynolds
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -25,7 +25,7 @@
 #include "theory/bv/bv_subtheory_core.h"
 #include "theory/bv/bv_subtheory_inequality.h"
 #include "theory/bv/bv_subtheory_bitblast.h"
-#include "theory/model.h"
+#include "theory/theory_model.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;

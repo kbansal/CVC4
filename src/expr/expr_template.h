@@ -81,7 +81,7 @@ namespace expr {
   class CVC4_PUBLIC ExprDag;
   class CVC4_PUBLIC ExprSetLanguage;
 
-  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap, uint32_t flags);
+  class ExportPrivate;
 }/* CVC4::expr namespace */
 
 /**
@@ -275,7 +275,7 @@ public:
    * @return an identifier uniquely identifying the value this
    * expression holds.
    */
-  unsigned getId() const;
+  unsigned long getId() const;
 
   /**
    * Returns the kind of the expression (AND, PLUS ...).
@@ -591,8 +591,7 @@ private:
   friend class TypeCheckingException;
   friend class expr::pickle::Pickler;
   friend class prop::TheoryProxy;
-  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap, uint32_t flags);
-
+  friend class expr::ExportPrivate;
   friend std::ostream& CVC4::operator<<(std::ostream& out, const Expr& e);
   template <bool ref_count> friend class NodeTemplate;
 

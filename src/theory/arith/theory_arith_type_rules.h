@@ -2,8 +2,8 @@
 /*! \file theory_arith_type_rules.h
  ** \verbatim
  ** Original author: Dejan Jovanovic
- ** Major contributors: Tim King, Christopher L. Conway, Morgan Deters
- ** Minor contributors (to current version): none
+ ** Major contributors: Christopher L. Conway, Morgan Deters
+ ** Minor contributors (to current version): Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -100,7 +100,6 @@ public:
     if( check ) {
       TypeNode lhsType = n[0].getType(check);
       if (!lhsType.isReal()) {
-        Message() << lhsType << " : " << n[0] << std::endl;
         throw TypeCheckingExceptionPrivate(n, "expecting an arithmetic term on the left-hand-side");
       }
       TypeNode rhsType = n[1].getType(check);

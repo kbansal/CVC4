@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Morgan Deters
  ** Major contributors: none
- ** Minor contributors (to current version): Dejan Jovanovic
+ ** Minor contributors (to current version): Dejan Jovanovic, Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -357,6 +357,15 @@ public:
     super::clear();
   }
 
+  /** Is the hash table empty? */
+  bool empty() const {
+    return super::empty();
+  }
+
+  /** This is currently very misleading! */
+  size_t size() const {
+    return super::size();
+  }
 };/* class AttrHash<bool> */
 
 /**
@@ -556,6 +565,16 @@ public:
    */
   void clear() {
     super::clear();
+  }
+
+  /** Is the hash table empty? */
+  bool empty() const {
+    return super::empty();
+  }
+
+  /** This is currently very misleading! */
+  size_t size() const {
+    return super::size();
   }
 
 };/* class CDAttrHash<bool> */

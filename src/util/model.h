@@ -1,8 +1,8 @@
 /*********************                                                        */
-/*! \file util_model.h
+/*! \file model.h
  ** \verbatim
- ** Original author: Clark Barrett
- ** Major contributors: Andrew Reynolds, Morgan Deters
+ ** Original author: Morgan Deters
+ ** Major contributors: Andrew Reynolds
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
@@ -14,8 +14,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__UTIL_MODEL_H
-#define __CVC4__UTIL_MODEL_H
+#ifndef __CVC4__MODEL_H
+#define __CVC4__MODEL_H
 
 #include <iostream>
 #include <vector>
@@ -75,4 +75,4 @@ public:
 
 }/* CVC4 namespace */
 
-#endif  /* __CVC4__UTIL_MODEL_H */
+#endif  /* __CVC4__MODEL_H */

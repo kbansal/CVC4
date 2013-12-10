@@ -18,7 +18,7 @@
 #include "smt/boolean_terms.h"
 #include "smt/smt_engine.h"
 #include "theory/theory_engine.h"
-#include "theory/model.h"
+#include "theory/theory_model.h"
 #include "theory/booleans/boolean_term_conversion_mode.h"
 #include "theory/booleans/options.h"
 #include "expr/kind.h"
@@ -141,6 +141,40 @@ Node BooleanTermConverter::rewriteAs(TNode in, TypeNode as) throw() {
       appctorb << (*dt2)[i].getConstructor();
       for(size_t j = 0; j < ctor.getNumArgs(); ++j) {
         appctorb << rewriteAs(NodeManager::currentNM()->mkNode(kind::APPLY_SELECTOR, ctor[j].getSelector(), in), TypeNode::fromType(SelectorType((*dt2)[i][j].getSelector().getType()).getRangeType()));
+      }
+      Node appctor = appctorb;
+      if(i == 0) {
+        out = appctor;
+      } else {
+        Node newOut = NodeManager::currentNM()->mkNode(kind::ITE, ctor.getTester(), appctor, out);
+        out = newOut;
+      }
+    }
+    return out;
+  }
+  if(in.getType().isParametricDatatype() &&
+     in.getType().isInstantiatedDatatype()) {
+    // We have something here like (Pair Bool Bool)---need to dig inside
+    // and make it (Pair BV1 BV1)
+    Assert(as.isParametricDatatype() && as.isInstantiatedDatatype());
+    const Datatype* dt2 = &as[0].getDatatype();
+    std::vector<TypeNode> fromParams, toParams;
+    for(unsigned i = 0; i < dt2->getNumParameters(); ++i) {
+      fromParams.push_back(TypeNode::fromType(dt2->getParameter(i)));
+      toParams.push_back(as[i + 1]);
+    }
+    const Datatype* dt1 = d_datatypeCache[dt2];
+    Assert(dt1 != NULL, "expected datatype in cache");
+    Assert(*dt1 == in.getType()[0].getDatatype(), "improper rewriteAs() between datatypes");
+    Node out;
+    for(size_t i = 0; i < dt1->getNumConstructors(); ++i) {
+      DatatypeConstructor ctor = (*dt1)[i];
+      NodeBuilder<> appctorb(kind::APPLY_CONSTRUCTOR);
+      appctorb << (*dt2)[i].getConstructor();
+      for(size_t j = 0; j < ctor.getNumArgs(); ++j) {
+        TypeNode asType = TypeNode::fromType(SelectorType((*dt2)[i][j].getSelector().getType()).getRangeType());
+        asType = asType.substitute(fromParams.begin(), fromParams.end(), toParams.begin(), toParams.end());
+        appctorb << rewriteAs(NodeManager::currentNM()->mkNode(kind::APPLY_SELECTOR, ctor[j].getSelector(), in), asType);
       }
       Node appctor = appctorb;
       if(i == 0) {

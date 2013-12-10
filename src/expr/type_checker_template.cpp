@@ -2,8 +2,8 @@
 /*! \file type_checker_template.cpp
  ** \verbatim
  ** Original author: Morgan Deters
- ** Major contributors: none
- ** Minor contributors (to current version): lianah
+ ** Major contributors: Tim King
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -40,13 +40,10 @@ TypeNode TypeChecker::computeType(NodeManager* nodeManager, TNode n, bool check)
   case kind::BUILTIN:
     typeNode = nodeManager->builtinOperatorType();
     break;
-  case kind::BITVECTOR_EXTRACT_OP :
-    typeNode = nodeManager->builtinOperatorType();
-    break; 
 
 ${typerules}
 
-#line 50 "${template}"
+#line 47 "${template}"
 
   default:
     Debug("getType") << "FAILURE" << std::endl;
@@ -69,7 +66,7 @@ bool TypeChecker::computeIsConst(NodeManager* nodeManager, TNode n)
   switch(n.getKind()) {
 ${construles}
 
-#line 73 "${template}"
+#line 70 "${template}"
 
   default:;
   }
@@ -77,6 +74,23 @@ ${construles}
   return false;
 
 }/* TypeChecker::computeIsConst */
+
+bool TypeChecker::neverIsConst(NodeManager* nodeManager, TNode n)
+  throw (AssertionException) {
+
+  Assert(n.getMetaKind() == kind::metakind::OPERATOR || n.getMetaKind() == kind::metakind::PARAMETERIZED);
+
+  switch(n.getKind()) {
+${neverconstrules}
+
+#line 87 "${template}"
+
+  default:;
+  }
+
+  return true;
+
+}/* TypeChecker::neverIsConst */
 
 }/* CVC4::expr namespace */
 }/* CVC4 namespace */

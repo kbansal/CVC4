@@ -14,8 +14,8 @@ LIBCVC4_VERSION = @CVC4_LIBRARY_VERSION@
 
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
-        -D __STDC_LIMIT_MACROS \
-        -D __STDC_FORMAT_MACROS \
+	-D __STDC_LIMIT_MACROS \
+	-D __STDC_FORMAT_MACROS \
 	-I@builddir@ -I@srcdir@/include -I@srcdir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas -Wno-parentheses $(FLAG_VISIBILITY_HIDDEN)
 
@@ -142,14 +142,14 @@ libcvc4_la_SOURCES = \
 	theory/shared_terms_database.cpp \
 	theory/term_registration_visitor.h \
 	theory/term_registration_visitor.cpp \
-	theory/ite_simplifier.h \
-	theory/ite_simplifier.cpp \
+	theory/ite_utilities.h \
+	theory/ite_utilities.cpp \
 	theory/unconstrained_simplifier.h \
 	theory/unconstrained_simplifier.cpp \
 	theory/quantifiers_engine.h \
 	theory/quantifiers_engine.cpp \
-	theory/model.h \
-	theory/model.cpp \
+	theory/theory_model.h \
+	theory/theory_model.cpp \
 	theory/rep_set.h \
 	theory/rep_set.cpp \
 	theory/atom_requests.h \
@@ -455,10 +455,10 @@ EXTRA_DIST = \
 	theory/rewriterules/kinds \
 	theory/arith/kinds \
 	theory/booleans/kinds \
-        theory/example/ecdata.h \
-        theory/example/ecdata.cpp \
-        theory/example/theory_uf_tim.h \
-        theory/example/theory_uf_tim.cpp
+	theory/example/ecdata.h \
+	theory/example/ecdata.cpp \
+	theory/example/theory_uf_tim.h \
+	theory/example/theory_uf_tim.cpp
 
 svn_versioninfo.cpp: svninfo
 	$(AM_V_GEN)( \
@@ -572,6 +572,12 @@ uninstall-local:
 	-rmdir "$(DESTDIR)$(includedir)/cvc4"
 	-rmdir "$(DESTDIR)$(libdir)/ocaml/cvc4"
 
+# This rule is ugly.  It's needed to ensure that automake's dependence
+# includes are available during distclean, even though they come from
+# directories that are cleaned first.  Without this rule, "distclean"
+# fails.
+%.Plo:; $(MKDIR_P) "$(dir $@)" && : > "$@"
+
 include @top_srcdir@/src/theory/Makefile.subdirs
 
 theory/rewriter_tables.h: theory/rewriter_tables_template.h theory/mkrewriter @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
@@ -597,4 +603,3 @@ theory/type_enumerator.cpp: theory/type_enumerator_template.cpp theory/mktheoryt
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
-

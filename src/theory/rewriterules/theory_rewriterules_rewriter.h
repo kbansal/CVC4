@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Morgan Deters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -105,6 +105,8 @@ struct RewriteAttibute<THEORY_REWRITERULES> {
 
   static void setPostRewriteCache(TNode node, TNode cache) throw() { }
 
+  typedef expr::Attribute< RewriteCacheTag<true, THEORY_REWRITERULES>, Node> pre_rewrite;
+  typedef expr::Attribute< RewriteCacheTag<false, THEORY_REWRITERULES>, Node> post_rewrite;
 };
 
 }/* CVC4::theory namespace */

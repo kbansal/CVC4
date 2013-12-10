@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: Morgan Deters
  ** Major contributors: Dejan Jovanovic
- ** Minor contributors (to current version): Francois Bobot, lianah, Clark Barrett, Tim King, Andrew Reynolds
+ ** Minor contributors (to current version): Francois Bobot, Liana Hadarean, Clark Barrett, Tim King, Andrew Reynolds
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -22,7 +22,7 @@
 #include "theory/substitutions.h"
 #include "smt/smt_engine.h"
 #include "smt/options.h"
-#include "theory/model.h"
+#include "theory/theory_model.h"
 #include "theory/arrays/theory_arrays_rewriter.h"
 #include "printer/dagification_visitor.h"
 #include "util/node_visitor.h"
@@ -270,6 +270,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       toStream(op, n.getOperator(), depth, types, false);
       break;
     case kind::CARDINALITY_CONSTRAINT:
+    case kind::COMBINED_CARDINALITY_CONSTRAINT:
       out << "CARDINALITY_CONSTRAINT";
       break;
 

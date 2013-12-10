@@ -2,8 +2,8 @@
 /*! \file theory_uf_type_rules.h
  ** \verbatim
  ** Original author: Dejan Jovanovic
- ** Major contributors: Christopher L. Conway, Morgan Deters
- ** Minor contributors (to current version): Andrew Reynolds, Tim King
+ ** Major contributors: Christopher L. Conway, Andrew Reynolds, Morgan Deters
+ ** Minor contributors (to current version): Tim King
  ** This file is part of the CVC4 project.
  ** Copyright (c) 2009-2013  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
@@ -64,6 +64,20 @@ public:
       TypeNode valType = n[1].getType(check);
       if( valType != nodeManager->integerType() ) {
         throw TypeCheckingExceptionPrivate(n, "cardinality constraint must be integer");
+      }
+    }
+    return nodeManager->booleanType();
+  }
+};/* class CardinalityConstraintTypeRule */
+
+class CombinedCardinalityConstraintTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw(TypeCheckingExceptionPrivate) {
+    if( check ) {
+      TypeNode valType = n[0].getType(check);
+      if( valType != nodeManager->integerType() ) {
+        throw TypeCheckingExceptionPrivate(n, "combined cardinality constraint must be integer");
       }
     }
     return nodeManager->booleanType();
