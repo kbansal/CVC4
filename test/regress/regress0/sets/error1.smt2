@@ -1,4 +1,4 @@
-(set-logic QF_ALL_SUPPORTED)
+(set-logic QF_UFLIA_SETS)
 
 (declare-fun A () (Set Int))
 (declare-fun C () (Set Int))

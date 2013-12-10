@@ -28,19 +28,6 @@ public:
 
   ~TheorySets();
 
-  /**
-   * Called once for each check-sat command, before any check(..)
-   * calls
-   */
-  void presolve();
-
-
-  /**
-   * Called once for each check-sat command, before any check(..)
-   * calls
-   */
-  void postsolve();
-
   void check(Effort);
 
   Node explain(TNode);
@@ -74,8 +61,6 @@ private:
   Node d_conflictNode;
 
   MembershipEngine* d_membershipEngine;
-
-  bool d_solving;
 
   void conflict(TNode, TNode);
 };/* class TheorySets */

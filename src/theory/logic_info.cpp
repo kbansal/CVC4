@@ -23,6 +23,7 @@
 #include "expr/kind.h"
 #include "theory/logic_info.h"
 #include "util/cvc4_assert.h"
+#include "theory/sets/options.h"
 
 using namespace std;
 using namespace CVC4::theory;
@@ -255,6 +256,10 @@ void LogicInfo::setLogicString(std::string logicString) throw(IllegalArgumentExc
         enableReals();
         arithNonLinear();
         p += 4;
+      }
+      if(!strncmp(p, "_SETS", 5)) {
+        enableTheory(THEORY_SETS);
+        p += 5;
       }
     }
   }

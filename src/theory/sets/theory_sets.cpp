@@ -38,6 +38,7 @@ private:
 
   // for any nodes we need to save, because others use TNode
   context::CDHashSet <Node, NodeHashFunction> d_nodeSaver;
+
 public:
   MembershipEngine(context::Context *c,
                    context::Context *u,
@@ -75,13 +76,6 @@ public:
       }
 
     }
-  }
-
-  void preSolve() {
-  }
-
-  void postSolve() {
-    
   }
 
   void printTermParents(TNode n) {
@@ -300,11 +294,6 @@ public:
     default:
       Assert(false, "MembershipEngine::doSettermPropagation");
     }
-  }
-
-  void checkPreSolveInvariants() {
-    // no longer true since we learn at times
-    // Assert(d_assertions.size() == 0, "Invariant failed in preSolveInvariants");
   }
 
   bool checkInvariants() {
@@ -569,19 +558,6 @@ Node TheorySets::explain(TNode literal)
   return mkAnd(assumptions);
 }
 
-void TheorySets::presolve() {
-  d_solving = true;
-  Debug("sets") << "[sets] TheorySets::presolve()" << std::endl;
-  d_membershipEngine->checkPreSolveInvariants();
-  d_membershipEngine->preSolve();
-}
-
-void TheorySets::postsolve() {
-  d_solving = false;
-  Debug("sets") << "[sets] TheorySets::postsolve()" << std::endl;  
-  d_membershipEngine->postSolve();
-}
-
 void TheorySets::preRegisterTerm(TNode n)
 {
   Debug("sets") << "TheorySets::preRegisterTerm("<<n<<")\n";
@@ -603,6 +579,7 @@ void TheorySets::preRegisterTerm(TNode n)
 bool TheorySets::NotifyClass::eqNotifyTriggerEquality(TNode equality, bool value)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyTriggerEquality: equality = " << equality << " value = " << value << std::endl;
+  // d_membershipEngine->eqNotifyEqual(equality, value);
   return true;
 }
 bool TheorySets::NotifyClass::eqNotifyTriggerPredicate(TNode predicate, bool value)
