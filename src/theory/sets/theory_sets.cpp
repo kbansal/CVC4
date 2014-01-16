@@ -40,6 +40,9 @@ public:
     inThisEqClass->push_back(t);
   }
 
+  void addToSetList(TNode n)     { setsThisElementIsIn -> push_back(n); }
+  void addToElementList(TNode n) { elementsInThisSet   -> push_back(n); }
+
   ~TheorySetsTermInfo() {
     Debug("sets-terminfo") << "[sets-terminfo] Destroying info for " << d_term
                            << std::endl;
@@ -59,6 +62,8 @@ class TheorySetsTermInfoManager {
 
   context::Context* d_context;
 
+  eq::EqualityEngine* d_eqEngine;
+
   void mergeLists(CDTNodeList* la, const CDTNodeList* lb) const{
     // straight from theory/arrays/array_info.cpp
     std::set<TNode> temp;
@@ -75,18 +80,34 @@ class TheorySetsTermInfoManager {
   }
 
 public:
-  TheorySetsTermInfoManager(context::Context* sc):
+  TheorySetsTermInfoManager(context::Context* sc,
+                            eq::EqualityEngine* eq):
     d_terms(sc),
-    d_context(sc)
-  {
-    
-  }
+    d_context(sc),
+    d_eqEngine(eq)
+  { }
 
   ~TheorySetsTermInfoManager() {
     for( typeof(d_info.begin()) it = d_info.begin();
          it != d_info.end(); ++it) {
       delete (*it).second;
     }
+  }
+
+  void notifyMembership(TNode fact) {
+    bool polarity = fact.getKind() != kind::NOT;
+    TNode atom = polarity ? fact : fact[0];
+    TNode x = atom[0], S = atom[1];
+
+    Debug("sets-terminfo") << "[sets-terminfo] Adding membership " << x
+                           << " in " << S << std::endl;
+
+
+    x = d_eqEngine->getRepresentative(x);
+    S = d_eqEngine->getRepresentative(S);
+
+    d_info[x]->addToSetList(S);
+    d_info[S]->addToElementList(x);
   }
 
   void addTerm(TNode n) {
@@ -126,6 +147,10 @@ public:
          
 };
 
+class TheorySetsPrivate {
+
+};
+
 TheorySets::TheorySets(context::Context* c,
                        context::UserContext* u,
                        OutputChannel& out,
@@ -138,7 +163,7 @@ TheorySets::TheorySets(context::Context* c,
   d_conflict(c),
   d_termInfoManager(NULL) {
 
-  d_termInfoManager = new TheorySetsTermInfoManager(c);
+  d_termInfoManager = new TheorySetsTermInfoManager(c, &d_equalityEngine);
 
   d_equalityEngine.addFunctionKind(kind::UNION);
   d_equalityEngine.addFunctionKind(kind::INTERSECTION);
@@ -179,6 +204,7 @@ void TheorySets::check(Effort level) {
       Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
                     << "be in " << atom[1] << std::endl;
       d_equalityEngine.assertPredicate(atom, polarity, fact);
+      d_termInfoManager->notifyMembership(fact);
       break;
 
     default:
