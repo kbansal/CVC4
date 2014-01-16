@@ -10,7 +10,8 @@ namespace CVC4 {
 namespace theory {
 namespace sets {
 
-class MembershipEngine;
+/** Internal classes, forward declared here */
+class TheorySetsTermInfoManager;
 
 class TheorySets : public Theory {
 public:
@@ -37,7 +38,6 @@ public:
   void preRegisterTerm(TNode node);
 
 private:
-
   /** Functions to handle callbacks from equality engine */
   class NotifyClass : public eq::EqualityEngineNotify {
     TheorySets& d_theory;
@@ -60,9 +60,9 @@ private:
   context::CDO<bool> d_conflict;
   Node d_conflictNode;
 
-  MembershipEngine* d_membershipEngine;
-
   void conflict(TNode, TNode);
+
+  TheorySetsTermInfoManager* d_termInfoManager;
 };/* class TheorySets */
 
 }/* CVC4::theory::sets namespace */
