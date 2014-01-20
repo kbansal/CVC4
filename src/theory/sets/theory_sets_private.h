@@ -43,7 +43,7 @@ public:
   void preRegisterTerm(TNode node);
 
 private:
-  TheorySets& d_theorySetsExternal;
+  TheorySets& d_external;
 
   /** Functions to handle callbacks from equality engine */
   class NotifyClass : public eq::EqualityEngineNotify {

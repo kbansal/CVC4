@@ -478,7 +478,7 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
                                      Valuation valuation,
                                      const LogicInfo& logicInfo,
                                      QuantifiersEngine* qe) :
-  d_theorySetsExternal(external),
+  d_external(external),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::sets::TheorySetsPrivate"),
   d_conflict(c),
@@ -507,9 +507,9 @@ TheorySetsPrivate::~TheorySetsPrivate()
 
 void TheorySetsPrivate::check(Theory::Effort level) {
 
-  while(!d_theorySetsExternal.done() && !d_conflict) {
+  while(!d_external.done() && !d_conflict) {
     // Get all the assertions
-    Assertion assertion = d_theorySetsExternal.get();
+    Assertion assertion = d_external.get();
     TNode fact = assertion.assertion;
 
     Debug("sets") << "\n\n[sets] TheorySetsPrivate::check(): processing " << fact
@@ -548,13 +548,13 @@ void TheorySetsPrivate::check(Theory::Effort level) {
 
       if(d_conflict) {
         Node conflictNode = explain(fact);
-        d_theorySetsExternal.d_out->conflict(conflictNode);
+        d_external.d_out->conflict(conflictNode);
       }
     }
   }
 
   if(!isComplete()) {
-    d_theorySetsExternal.d_out->lemma(getLemma());
+    d_external.d_out->lemma(getLemma());
   }
 
   return;
@@ -568,7 +568,7 @@ void TheorySetsPrivate::conflict(TNode a, TNode b)
     d_conflictNode = explain(a.eqNode(b));
   }
   // d_conflictNode = explain(a.iffNode(b));
-  d_theorySetsExternal.d_out->conflict(d_conflictNode);
+  d_external.d_out->conflict(d_conflictNode);
   Debug("sets") << "[sets] conflict: " << a << " iff " << b
                 << ", explaination " << d_conflictNode << std::endl;
   d_conflict = true;
