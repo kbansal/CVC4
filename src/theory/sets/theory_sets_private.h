@@ -3,6 +3,9 @@
 #ifndef __CVC4__THEORY__SETS__THEORY_SETS_PRIVATE_H
 #define __CVC4__THEORY__SETS__THEORY_SETS_PRIVATE_H
 
+#include "context/cdhashset.h"
+#include "context/cdqueue.h"
+
 #include "theory/theory.h"
 #include "theory/uf/equality_engine.h"
 
@@ -67,6 +70,63 @@ private:
   void conflict(TNode, TNode);
 
   TheorySetsTermInfoManager* d_termInfoManager;
+
+  struct AtomInfo {
+    bool polarity;
+    bool learnt;
+  };
+
+  /** Assertions and helper functions */
+
+  context::CDHashMap <Node, AtomInfo, NodeHashFunction> d_assertions;
+
+  bool present(TNode atom);
+
+  bool holds(TNode lit) {
+    bool polarity = lit.getKind() == kind::NOT ? false : true;
+    TNode atom = polarity ? lit : lit[0];
+    return present(atom) && d_assertions[atom].get().polarity == polarity;
+  }
+
+  void assertMemebership(TNode fact, TNode reason, bool learnt);
+
+  /** Propagation / learning and helper functions. */
+
+  void doSettermPropagation(TNode x, TNode S);
+  void learnLiteral(TNode atom, bool polarity, Node reason);
+  void learnLiteral(TNode lit, Node reason) {
+    if(lit.getKind() == kind::NOT) {
+      learnLiteral(lit[0], false, reason);
+    } else {
+      learnLiteral(lit, true, reason);
+    }
+  }
+
+  void getCurrentAssertions(std::vector<TNode>& assumptions) {
+    Debug("sets-mem") << "[sets-mem] Current assertions:" << std::endl; 
+    for(typeof(d_assertions.begin()) i = d_assertions.begin();
+        i != d_assertions.end(); ++i) {
+      if( (*i).second.learnt) continue;
+      Node literal = (*i).second.polarity ? Node((*i).first) : (*i).first.notNode();
+      d_nodeSaver.insert(literal);
+      assumptions.push_back(literal);
+      Debug("sets-mem") << "[sets-mem]   " << literal << std::endl; 
+    }
+  }
+
+  // for any nodes we need to save, because others use TNode
+  context::CDHashSet <Node, NodeHashFunction> d_nodeSaver;
+
+  /** Lemmas and helper functions */
+  context::CDO<bool> d_complete;
+  context::CDQueue <TNode> d_pending;
+  context::CDQueue <TNode> d_pendingDisequal;
+  context::CDHashSet <Node, NodeHashFunction> d_pendingEverInserted;
+
+  void addToPending(Node n);
+  bool isComplete();
+  Node getLemma();
+
 };/* class TheorySetsPrivate */
 
 }/* CVC4::theory::sets namespace */
