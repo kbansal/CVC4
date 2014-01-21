@@ -92,6 +92,7 @@ private:
     // return present(atom) && d_assertions[atom].get().polarity == polarity;
   }
 
+  void assertEquality(TNode fact, TNode reason, bool learnt);
   void assertMemebership(TNode fact, TNode reason, bool learnt);
 
   /** Propagation / learning and helper functions. */

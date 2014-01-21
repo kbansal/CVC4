@@ -200,6 +200,11 @@ bool  TheorySetsPrivate::present(TNode atom) {
   // return d_assertions.find(atom_rep) != d_assertions.end();
 }
 
+void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
+{
+  Assert(learnt == false);
+}
+
 void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
 {
   Debug("sets-mem") << "\n[sets-mem] adding ( " << fact
@@ -418,6 +423,25 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
   if(d_assertions.find(atom) != d_assertions.end()) {
     if(d_assertions[atom].get().polarity != polarity) {
       Debug("sets-learn") << "conflict found" << std::endl;
+
+      // TODO: following only for transition, get rid of it soon.
+
+      // check same information is in the equality engine
+      if(atom.getKind() == kind::IN) {
+        TNode negpol_atom = NodeManager::currentNM()->mkConst<bool>(!polarity);
+        Assert(d_equalityEngine.areEqual(atom, negpol_atom));
+        d_nodeSaver.insert(reason);
+        d_equalityEngine.assertPredicate(atom, polarity, reason);
+      } else {
+        Assert(atom.getKind() == kind::EQUAL);
+        if(polarity)
+          Assert(d_equalityEngine.areEqual(atom[0], atom[1]));
+        else
+          Assert(d_equalityEngine.areDisequal(atom[0], atom[1], false));
+        d_equalityEngine.assertEquality(atom, polarity, reason);
+      }
+
+      Assert(d_conflict);       // should be marked due to equality engine
       d_conflict = true;
     }
   } else {
@@ -464,13 +488,17 @@ bool TheorySetsPrivate::isComplete() {
 
 Node TheorySetsPrivate::getLemma() {
   Assert(!d_pending.empty() || !d_pendingDisequal.empty());
+
+  Node lemma;
+
   if(!d_pending.empty()) {
     Node n = d_pending.front();
     d_pending.pop();
 
     Assert(!present(n));
     Assert(n.getKind() == kind::IN);
-    return OR(n, NOT(n));
+
+    lemma = OR(n, NOT(n));
   } else {
     Node n = d_pendingDisequal.front();
     d_pendingDisequal.pop();
@@ -484,8 +512,12 @@ Node TheorySetsPrivate::getLemma() {
     // d_equalityEngine.addTerm(l2);
     // d_terms.insert(x);
 
-    return  OR(AND(l1, NOT(l2)), AND(NOT(l1), l2));
+    lemma = OR(AND(l1, NOT(l2)), AND(NOT(l1), l2)); 
   }
+
+  Debug("sets-lemma") << "[sets-lemma] " << lemma << std::endl;
+
+  return  lemma;
 }
 
 
