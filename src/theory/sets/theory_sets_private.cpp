@@ -193,9 +193,11 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
 /********************** TheorySetsPrivate::*() ***************************/
 
 bool  TheorySetsPrivate::present(TNode atom) {
-  Node atom_rep = IN( d_equalityEngine.getRepresentative(atom[0]),
-                      d_equalityEngine.getRepresentative(atom[1]) );
-  return d_assertions.find(atom_rep) != d_assertions.end();
+  Assert(atom.getKind() == kind::IN);
+  return holds(atom) || holds(atom.notNode());
+  // Node atom_rep = IN( d_equalityEngine.getRepresentative(atom[0]),
+  //                     d_equalityEngine.getRepresentative(atom[1]) );
+  // return d_assertions.find(atom_rep) != d_assertions.end();
 }
 
 void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
@@ -207,11 +209,11 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   // checkInvariants();
 
   bool polarity = fact.getKind() == kind::NOT ? false : true;
-  TNode atom = polarity ? fact : fact[0];
+  TNode atom_tmp = polarity ? fact : fact[0];
 
-  // Assert(atom_tmp.getKind() == kind::IN);
-  // Node atom = IN( d_equalityEngine.getRepresentative(atom_tmp[0]),
-  //                 d_equalityEngine.getRepresentative(atom_tmp[1]) );
+  Assert(atom_tmp.getKind() == kind::IN);
+  Node atom = IN( d_equalityEngine.getRepresentative(atom_tmp[0]),
+                  d_equalityEngine.getRepresentative(atom_tmp[1]) );
 
   if(d_assertions.find(atom) != d_assertions.end() ) {
     if(d_assertions[atom].get().polarity != polarity) {
@@ -249,15 +251,24 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   Debug("sets-prop") << "[sets-prop] Propagating 'down' " << std::endl;
   Debug("sets-prop") << "[sets-prop] Propagating 'eq' on element"
                      << d_equalityEngine.getRepresentative(atom[0]) << std::endl;
-  // for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
-  //                           &d_equalityEngine); !i.isFinished(); ++i) {
+  for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
+                            &d_equalityEngine); !i.isFinished(); ++i) {
 
-  //   for(eq::EqClassIterator j(d_equalityEngine.getRepresentative(atom[1]),
-  //                             &d_equalityEngine); !j.isFinished(); ++j) {
+    for(eq::EqClassIterator j(d_equalityEngine.getRepresentative(atom[1]),
+                              &d_equalityEngine); !j.isFinished(); ++j) {
 
 
-      TNode x = atom[0]; // (*i);
-      TNode S = atom[1]; // (*j);
+      TNode x = (*i);
+      TNode S = (*j);
+      TNode cur_atom = IN(x, S);
+      Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
+
+      if(!d_equalityEngine.hasTerm(cur_atom) ||
+         !d_equalityEngine.areEqual(cur_atom, polarity_atom) ) {
+        Debug("sets-eq") << "[sets-eq] Should be propagating " << cur_atom 
+                         << " with polarity = " << polarity << std::endl;
+        d_equalityEngine.addTriggerPredicate(cur_atom);
+      }
 
       if(S.getKind() == kind::UNION ||
          S.getKind() == kind::INTERSECTION ||
@@ -277,9 +288,9 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
         if(d_conflict) return;
       }
 
-  //   }
+    }
 
-  // }
+  }
 
       // Debug("sets-prop-eq") << "[sets-prop-eq] " << fact << " : element : "
       //                       << d_equalityEngine.getRepresentative(atom[0]) << " "
@@ -332,10 +343,12 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
 
   if( holds(literal) ) {
     // 1a. literal => left_literal
+    Debug("sets-prop") << "[sets-prop]  ... via case 1a. ..." << std::endl;
     learnLiteral(left_literal, literal);
     if(d_conflict) return;
 
     // 1b. literal => right_literal
+    Debug("sets-prop") << "[sets-prop]  ... via case 1b. ..." << std::endl;
     learnLiteral(right_literal, literal);
     if(d_conflict) return;
 
@@ -345,6 +358,7 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   else if( holds(literal.negate() ) ) {
     // 4. neg(literal), left_literal => neg(right_literal)
     if( holds(left_literal) ) {
+      Debug("sets-prop") << "[sets-prop]  ... via case 4. ..." << std::endl;
       learnLiteral(right_literal.negate(), AND( literal.negate(), 
                                                 left_literal) );
       if(d_conflict) return;
@@ -352,6 +366,7 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
 
     // 5. neg(literal), right_literal => neg(left_literal)
     if( holds(right_literal) ) {
+      Debug("sets-prop") << "[sets-prop]  ... via case 5. ..." << std::endl;
       learnLiteral(left_literal.negate(), AND( literal.negate(),
                                                right_literal) );
       if(d_conflict) return;
@@ -360,16 +375,19 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   else {
     // 2,3. neg(left_literal) v neg(right_literal) => neg(literal)
     if(holds(left_literal.negate())) {
+      Debug("sets-prop") << "[sets-prop]  ... via case 2. ..." << std::endl;
       learnLiteral(literal.negate(), left_literal.negate());
       if(d_conflict) return;
     }
     else if(holds(right_literal.negate())) {
+      Debug("sets-prop") << "[sets-prop]  ... via case 3. ..." << std::endl;
       learnLiteral(literal.negate(), right_literal.negate());
       if(d_conflict) return;
     }
 
     // 6. the axiom itself:
     else if(holds(left_literal) && holds(right_literal)) {
+      Debug("sets-prop") << "[sets-prop]  ... via case 6. ..." << std::endl;
       learnLiteral(literal, AND(left_literal, right_literal) );
       if(d_conflict) return;
     }

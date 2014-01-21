@@ -85,7 +85,11 @@ private:
   bool holds(TNode lit) {
     bool polarity = lit.getKind() == kind::NOT ? false : true;
     TNode atom = polarity ? lit : lit[0];
-    return present(atom) && d_assertions[atom].get().polarity == polarity;
+    Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
+    return 
+      d_equalityEngine.hasTerm(atom) &&
+      d_equalityEngine.areEqual(atom, polarity_atom);
+    // return present(atom) && d_assertions[atom].get().polarity == polarity;
   }
 
   void assertMemebership(TNode fact, TNode reason, bool learnt);
