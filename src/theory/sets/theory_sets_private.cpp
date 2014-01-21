@@ -265,7 +265,7 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
 
       TNode x = (*i);
       TNode S = (*j);
-      TNode cur_atom = IN(x, S);
+      Node cur_atom = IN(x, S);
       Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
 
       if(!d_equalityEngine.hasTerm(cur_atom) ||
@@ -448,7 +448,6 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
     Node learnt_literal = polarity ? Node(atom) : NOT(atom);
     if(d_conflict) return;
     if(atom.getKind() == kind::EQUAL) {
-      Assert(false);
       d_nodeSaver.insert(reason);
       d_equalityEngine.assertEquality(atom, polarity, reason);
       if(!d_equalityEngine.consistent()) d_conflict = true;
