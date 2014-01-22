@@ -128,9 +128,20 @@ public:
       d_info[n] = new TheorySetsTermInfo(n, d_context);
     }
 
-    for(unsigned i = 0; i < numChild; ++i)
-      if(d_terms.contains(n[i]))
-        d_info[n[i]]->parents->push_back(n);
+    if(n.getKind() == kind::UNION ||
+       n.getKind() == kind::INTERSECTION ||
+       n.getKind() == kind::SETMINUS || 
+       n.getKind() == kind::SET_SINGLETON) {
+
+      for(unsigned i = 0; i < numChild; ++i) {
+        if(d_terms.contains(n[i])) {
+          Debug("sets-parent") << "Adding " << n << " to parent list of "
+                               << n[i] << std::endl;
+          d_info[n[i]]->parents->push_back(n);
+        }
+      }
+
+    }
   }
 
   void mergeTerms(TNode a, TNode b) {
@@ -214,11 +225,11 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   // checkInvariants();
 
   bool polarity = fact.getKind() == kind::NOT ? false : true;
-  TNode atom_tmp = polarity ? fact : fact[0];
+  TNode atom = polarity ? fact : fact[0];
 
-  Assert(atom_tmp.getKind() == kind::IN);
-  Node atom = IN( d_equalityEngine.getRepresentative(atom_tmp[0]),
-                  d_equalityEngine.getRepresentative(atom_tmp[1]) );
+  // Assert(atom_tmp.getKind() == kind::IN);
+  // Node atom = IN( d_equalityEngine.getRepresentative(atom_tmp[0]),
+  //                 d_equalityEngine.getRepresentative(atom_tmp[1]) );
 
   if(d_assertions.find(atom) != d_assertions.end() ) {
     if(d_assertions[atom].get().polarity != polarity) {
@@ -247,6 +258,15 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
 
     if(polarity && atom[1].getKind() == kind::EMPTYSET) {
       Debug("sets-mem") << "[sets-mem]  something in empty set? conflict." << std::endl;
+      d_nodeSaver.insert(reason);
+      if(!d_equalityEngine.hasTerm(atom[0])) {
+        d_equalityEngine.addTriggerTerm(atom[0], THEORY_SETS);
+      }
+      if(!d_equalityEngine.hasTerm(atom[1])) {
+        d_equalityEngine.addTriggerTerm(atom[1], THEORY_SETS);
+      }
+      Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(true);
+      d_equalityEngine.assertPredicate(polarity_atom, false, reason);
       d_conflict = true;
       return;
     }
@@ -579,6 +599,7 @@ void TheorySetsPrivate::check(Theory::Effort level) {
       Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
                     << "be in " << atom[1] << std::endl;
       d_equalityEngine.assertPredicate(atom, polarity, fact);
+      if(d_conflict) break;
       assertMemebership(fact, fact, /* learnt = */ false);
       break;
 
