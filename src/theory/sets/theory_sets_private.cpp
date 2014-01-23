@@ -480,7 +480,10 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
         d_equalityEngine.addTriggerTerm(atom[1], THEORY_SETS);
       }
       d_equalityEngine.assertPredicate(atom, polarity, reason);
-      if(!d_equalityEngine.consistent()) d_conflict = true;
+      if(!d_equalityEngine.consistent()) {
+        d_conflict = true;
+        return;
+      }
       assertMemebership(learnt_literal, learnt_literal, /* learnt = */ true);
     }
   }
