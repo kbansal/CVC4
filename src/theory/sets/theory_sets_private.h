@@ -77,25 +77,20 @@ private:
   };
 
   /** Assertions and helper functions */
-
-  context::CDHashMap <Node, AtomInfo, NodeHashFunction> d_assertions;
-
   bool present(TNode atom);
-
   bool holds(TNode lit) {
     bool polarity = lit.getKind() == kind::NOT ? false : true;
     TNode atom = polarity ? lit : lit[0];
-    Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
-    return 
-      d_equalityEngine.hasTerm(atom) &&
-      d_equalityEngine.areEqual(atom, polarity_atom);
-    // return present(atom) && d_assertions[atom].get().polarity == polarity;
+    return holds(atom, polarity);
   }
+  bool holds(TNode atom, bool polarity);
 
   void assertEquality(TNode fact, TNode reason, bool learnt);
   void assertMemebership(TNode fact, TNode reason, bool learnt);
 
   /** Propagation / learning and helper functions. */
+
+  context::CDQueue< std::pair<Node, Node> > d_propagationQueue;
 
   void doSettermPropagation(TNode x, TNode S);
   void learnLiteral(TNode atom, bool polarity, Node reason);
@@ -106,18 +101,7 @@ private:
       learnLiteral(lit, true, reason);
     }
   }
-
-  void getCurrentAssertions(std::vector<TNode>& assumptions) {
-    Debug("sets-mem") << "[sets-mem] Current assertions:" << std::endl; 
-    for(typeof(d_assertions.begin()) i = d_assertions.begin();
-        i != d_assertions.end(); ++i) {
-      if( (*i).second.learnt) continue;
-      Node literal = (*i).second.polarity ? Node((*i).first) : (*i).first.notNode();
-      d_nodeSaver.insert(literal);
-      assumptions.push_back(literal);
-      Debug("sets-mem") << "[sets-mem]   " << literal << std::endl; 
-    }
-  }
+  void finishPropagation();
 
   // for any nodes we need to save, because others use TNode
   context::CDHashSet <Node, NodeHashFunction> d_nodeSaver;

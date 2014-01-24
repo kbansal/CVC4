@@ -30,7 +30,9 @@ class TheorySetsTermInfo {
 public:
   CDTNodeList* inThisEqClass;
   CDTNodeList* elementsInThisSet;
+  CDTNodeList* elementsNotInThisSet;
   CDTNodeList* setsThisElementIsIn;
+  CDTNodeList* setsThisElementIsNotIn;
   CDTNodeList* parents;
   TheorySetsTermInfo(TNode t, context::Context* c):
     d_term(t)
@@ -38,25 +40,35 @@ public:
     Debug("sets-terminfo") << "[sets-terminfo] Creating info for " << d_term
                            << std::endl;
 
-    inThisEqClass       = new(true)CDTNodeList(c);
-    elementsInThisSet   = new(true)CDTNodeList(c);
+    inThisEqClass = new(true)CDTNodeList(c);
+    elementsInThisSet = new(true)CDTNodeList(c);
+    elementsNotInThisSet = new(true)CDTNodeList(c);
     setsThisElementIsIn = new(true)CDTNodeList(c);
-    parents             = new(true)CDTNodeList(c);
+    setsThisElementIsNotIn = new(true)CDTNodeList(c);
+    parents = new(true)CDTNodeList(c);
 
     inThisEqClass->push_back(t);
   }
 
-  void addToSetList(TNode n)     { setsThisElementIsIn -> push_back(n); }
-  void addToElementList(TNode n) { elementsInThisSet   -> push_back(n); }
+  void addToSetList(TNode n, bool polarity) {
+    if(polarity) setsThisElementIsIn -> push_back(n);
+    else setsThisElementIsNotIn -> push_back(n);
+  }
+  void addToElementList(TNode n, bool polarity) {
+    if(polarity) elementsInThisSet -> push_back(n);
+    else elementsNotInThisSet -> push_back(n);
+  }
 
   ~TheorySetsTermInfo() {
     Debug("sets-terminfo") << "[sets-terminfo] Destroying info for " << d_term
                            << std::endl;
 
-    inThisEqClass       -> deleteSelf();
-    elementsInThisSet   -> deleteSelf();
+    inThisEqClass -> deleteSelf();
+    elementsInThisSet -> deleteSelf();
+    elementsNotInThisSet -> deleteSelf();
     setsThisElementIsIn -> deleteSelf();
-    parents             -> deleteSelf();
+    setsThisElementIsNotIn -> deleteSelf();
+    parents -> deleteSelf();
   }
 };
 /** End: adapted from theory/arrays/array_info.cpp */
@@ -103,17 +115,27 @@ public:
   void notifyMembership(TNode fact) {
     bool polarity = fact.getKind() != kind::NOT;
     TNode atom = polarity ? fact : fact[0];
-    TNode x = atom[0], S = atom[1];
+
+    TNode x = d_eqEngine->getRepresentative(atom[0]);
+    TNode S = d_eqEngine->getRepresentative(atom[1]);
 
     Debug("sets-terminfo") << "[sets-terminfo] Adding membership " << x
-                           << " in " << S << std::endl;
+                           << " in " << S << " " << polarity << std::endl;
+
+    Node atomModEq = IN(x, S);
+    if(!d_eqEngine->hasTerm(atomModEq)) {
+      d_eqEngine->addTriggerPredicate(atomModEq);
+
+#if CVC4_ASSERTIONS
+    // Make sure the predicate modulo equalities already holds
+    Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
+    Assert(d_eqEngine->areEqual(atomModEq, polarity_atom));
+#endif
+    }
 
 
-    x = d_eqEngine->getRepresentative(x);
-    S = d_eqEngine->getRepresentative(S);
-
-    d_info[x]->addToSetList(S);
-    d_info[S]->addToElementList(x);
+    d_info[x]->addToSetList(S, polarity);
+    d_info[S]->addToElementList(x, polarity);
   }
 
   CDTNodeList* getParents(TNode x) {
@@ -162,8 +184,14 @@ public:
     mergeLists((*ita).second->elementsInThisSet,
                (*itb).second->elementsInThisSet);
 
+    mergeLists((*ita).second->elementsNotInThisSet,
+               (*itb).second->elementsNotInThisSet);
+
     mergeLists((*ita).second->setsThisElementIsIn,
                (*itb).second->setsThisElementIsIn);
+
+    mergeLists((*ita).second->setsThisElementIsNotIn,
+               (*itb).second->setsThisElementIsNotIn);
   }
          
 };
@@ -210,10 +238,23 @@ bool  TheorySetsPrivate::present(TNode atom) {
   //                     d_equalityEngine.getRepresentative(atom[1]) );
   // return d_assertions.find(atom_rep) != d_assertions.end();
 }
+bool TheorySetsPrivate::holds(TNode atom, bool polarity) {
+  Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
+  Node atomModEq = IN( d_equalityEngine.getRepresentative(atom[0]),
+                  d_equalityEngine.getRepresentative(atom[1]) );
+  return 
+    d_equalityEngine.hasTerm(atomModEq) &&
+    d_equalityEngine.areEqual(atomModEq, polarity_atom);
+}
 
 void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
 {
   Assert(learnt == false);
+
+  bool polarity = fact.getKind() != kind::NOT;
+  TNode atom = polarity ? fact : fact[0];
+
+  d_equalityEngine.assertEquality(atom, polarity, fact);
 }
 
 void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
@@ -222,107 +263,76 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
                     << ", " << reason
                     << ", " << learnt << std::endl;
 
-  // checkInvariants();
-
   bool polarity = fact.getKind() == kind::NOT ? false : true;
   TNode atom = polarity ? fact : fact[0];
 
-  // Assert(atom_tmp.getKind() == kind::IN);
-  // Node atom = IN( d_equalityEngine.getRepresentative(atom_tmp[0]),
-  //                 d_equalityEngine.getRepresentative(atom_tmp[1]) );
-
-  if(d_assertions.find(atom) != d_assertions.end() ) {
-    if(d_assertions[atom].get().polarity != polarity) {
-
-      if(!learnt) {
-        Assert(d_assertions[atom].get().learnt,
-               "Theory asserted both literal and negation?");
-        AtomInfo new_info;
-        new_info.polarity = polarity;
-        new_info.learnt = learnt;
-        d_assertions[atom] = new_info;
-      }
-
-      Debug("sets-mem") << "[sets-mem]  conflict found" << std::endl;
-      d_conflict = true;
-    }
-
+  // fact already holds
+  if( holds(atom, polarity) ) {
+    Debug("sets-mem") << "[sets-mem]   already present, skipping" << std::endl;
     return;
-  } else {
-    Assert(atom.getNumChildren() == 2);
-    AtomInfo atom_info;
-    atom_info.polarity = polarity;
-    atom_info.learnt = learnt;
-    d_assertions[atom] = atom_info;
-    d_termInfoManager->notifyMembership(atom); // atom -> fact perhpas
-
-    if(polarity && atom[1].getKind() == kind::EMPTYSET) {
-      Debug("sets-mem") << "[sets-mem]  something in empty set? conflict." << std::endl;
-      d_nodeSaver.insert(reason);
-      if(!d_equalityEngine.hasTerm(atom[0])) {
-        d_equalityEngine.addTriggerTerm(atom[0], THEORY_SETS);
-      }
-      if(!d_equalityEngine.hasTerm(atom[1])) {
-        d_equalityEngine.addTriggerTerm(atom[1], THEORY_SETS);
-      }
-      Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(true);
-      d_equalityEngine.assertPredicate(polarity_atom, false, reason);
-      d_conflict = true;
-      return;
-    }
   }
 
-  //Propagation
-  Debug("sets-prop") << "[sets-prop] Propagating 'down' " << std::endl;
-  Debug("sets-prop") << "[sets-prop] Propagating 'eq' on element"
-                     << d_equalityEngine.getRepresentative(atom[0]) << std::endl;
+  // assert fact & check for conflict
+  if(learnt) d_nodeSaver.insert(reason);
+  d_equalityEngine.assertPredicate(atom, polarity, reason);
+
+  if(!d_equalityEngine.consistent()) {
+    Debug("sets-mem") << "[sets-mem]   running into a conflict" << std::endl;
+    d_conflict = true;
+    return;
+  }
+
+  // update term info data structures
+  d_termInfoManager->notifyMembership(fact);
+
+  // propagation
   for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
                             &d_equalityEngine); !i.isFinished(); ++i) {
 
     for(eq::EqClassIterator j(d_equalityEngine.getRepresentative(atom[1]),
                               &d_equalityEngine); !j.isFinished(); ++j) {
 
-
       TNode x = (*i);
       TNode S = (*j);
       Node cur_atom = IN(x, S);
-      Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
 
-      if(!d_equalityEngine.hasTerm(cur_atom) ||
-         !d_equalityEngine.areEqual(cur_atom, polarity_atom) ) {
-        Debug("sets-eq") << "[sets-eq] Should be propagating " << cur_atom 
-                         << " with polarity = " << polarity << std::endl;
-        d_equalityEngine.addTriggerPredicate(cur_atom);
-      }
 
+      // propagation : empty set
+      if(polarity && S.getKind() == kind::EMPTYSET) {
+        Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
+                           << std::endl;
+        TNode true_atom = NodeManager::currentNM()->mkConst<bool>(true);
+        learnLiteral(true_atom, /* polarity = */ false, cur_atom);
+        Assert(d_conflict);
+        return;
+      }// propagation: empty set
+
+
+      // propagation : children
+      Debug("sets-prop") << "[sets-prop] Propagating 'down' for "
+                         << x << element_of_str << S << std::endl;
       if(S.getKind() == kind::UNION ||
          S.getKind() == kind::INTERSECTION ||
          S.getKind() == kind::SETMINUS || 
          S.getKind() == kind::SET_SINGLETON) {
         doSettermPropagation(x, S);
         if(d_conflict) return;
-      }
+      }// propagation: children
 
+
+      // propagation : parents
       Debug("sets-prop") << "[sets-prop] Propagating 'up' for "
                          << x << element_of_str << S << std::endl;
-
       CDTNodeList* parentList = d_termInfoManager->getParents(S);
       for(typeof(parentList->begin()) k = parentList->begin();
           k != parentList->end(); ++k) {
         doSettermPropagation(x, *k);
         if(d_conflict) return;
-      }
+      }// propagation : parents
 
-    }
 
-  }
-
-      // Debug("sets-prop-eq") << "[sets-prop-eq] " << fact << " : element : "
-      //                       << d_equalityEngine.getRepresentative(atom[0]) << " "
-      //                       << (*i) << std::endl;
-      // if( (*i) == atom[0] ) continue; // does this ever happen?
-      // learnLiteral(IN(*i, atom[1]), polarity);
-      // if(d_conflict) return;
+    }//j loop
+  }//i loop
 
 }
 
@@ -418,7 +428,7 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
     }
   }
 
-  // // checkFulfillingRule
+  // checkFulfillingRule
   Node n;
   switch(S.getKind()) {
   case kind::UNION:
@@ -440,51 +450,40 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
 void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
   Debug("sets-learn") << "[sets-learn] learnLiteral(" << atom
                       << ", " << polarity << ")" << std::endl;
-  if(d_assertions.find(atom) != d_assertions.end()) {
-    if(d_assertions[atom].get().polarity != polarity) {
-      Debug("sets-learn") << "conflict found" << std::endl;
 
-      // TODO: following only for transition, get rid of it soon.
+  if( holds(atom, polarity) ) {
+    Debug("sets-learn") << "[sets-learn] \u2514 already known, skipping" << std::endl;
+    return;
+  }
 
-      // check same information is in the equality engine
-      if(atom.getKind() == kind::IN) {
-        TNode negpol_atom = NodeManager::currentNM()->mkConst<bool>(!polarity);
-        Assert(d_equalityEngine.areEqual(atom, negpol_atom));
-        d_nodeSaver.insert(reason);
-        d_equalityEngine.assertPredicate(atom, polarity, reason);
-      } else {
-        Assert(atom.getKind() == kind::EQUAL);
-        if(polarity)
-          Assert(d_equalityEngine.areEqual(atom[0], atom[1]));
-        else
-          Assert(d_equalityEngine.areDisequal(atom[0], atom[1], false));
-        d_equalityEngine.assertEquality(atom, polarity, reason);
-      }
-
-      Assert(d_conflict);       // should be marked due to equality engine
-      d_conflict = true;
-    }
-  } else {
-    Node learnt_literal = polarity ? Node(atom) : NOT(atom);
-    if(d_conflict) return;
+  if( holds(atom, !polarity) ) {
+    Debug("sets-learn") << "[sets-learn] \u2514 conflict found" << std::endl;
+    d_nodeSaver.insert(reason);
     if(atom.getKind() == kind::EQUAL) {
-      d_nodeSaver.insert(reason);
       d_equalityEngine.assertEquality(atom, polarity, reason);
-      if(!d_equalityEngine.consistent()) d_conflict = true;
     } else {
-      d_nodeSaver.insert(reason);
-      if(!d_equalityEngine.hasTerm(atom[0])) {
-        d_equalityEngine.addTriggerTerm(atom[0], THEORY_SETS);
-      }
-      if(!d_equalityEngine.hasTerm(atom[1])) {
-        d_equalityEngine.addTriggerTerm(atom[1], THEORY_SETS);
-      }
       d_equalityEngine.assertPredicate(atom, polarity, reason);
-      if(!d_equalityEngine.consistent()) {
-        d_conflict = true;
-        return;
-      }
-      assertMemebership(learnt_literal, learnt_literal, /* learnt = */ true);
+    }
+    Assert(d_conflict);       // should be marked due to equality engine
+    return;
+  }
+
+  Assert(atom.getKind() == kind::EQUAL || atom.getKind() == kind::IN);
+
+  Node learnt_literal = polarity ? Node(atom) : NOT(atom);
+  d_propagationQueue.push_back( make_pair(learnt_literal, reason) );
+}
+
+void TheorySetsPrivate::finishPropagation()
+{
+  while(!d_conflict && !d_propagationQueue.empty()) {
+    std::pair<Node,Node> np = d_propagationQueue.front();
+    d_propagationQueue.pop();
+    TNode atom = np.first.getKind() == kind::NOT ? np.first[0] : np.first;
+    if(atom.getKind() == kind::IN) {
+      assertMemebership(np.first, np.second, /* learnt = */ true);
+    } else {
+      assertEquality(np.first, np.second, /* learnt = */ true);
     }
   }
 }
@@ -555,7 +554,7 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_equalityEngine(d_notify, c, "theory::sets::TheorySetsPrivate"),
   d_conflict(c),
   d_termInfoManager(NULL),
-  d_assertions(c),
+  d_propagationQueue(c),
   d_nodeSaver(c),
   d_complete(c),
   d_pending(c),
@@ -584,46 +583,39 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     Assertion assertion = d_external.get();
     TNode fact = assertion.assertion;
 
-    Debug("sets") << "\n\n[sets] TheorySetsPrivate::check(): processing " << fact
-                  << std::endl;
+    Debug("sets") << "\n\n[sets] TheorySetsPrivate::check(): processing "
+                  << fact << std::endl;
 
     bool polarity = fact.getKind() != kind::NOT;
     TNode atom = polarity ? fact : fact[0];
 
-    // Send to EqualityEngine
+    // Solve each
     switch(atom.getKind()) {
     case kind::EQUAL:
       Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
                     << "be equal to " << atom[1] << std::endl;
-      d_equalityEngine.assertEquality(atom, polarity, fact);
+      assertEquality(fact, fact, /* learnt = */ false);
       break;
 
     case kind::IN:
       Debug("sets") << atom[0] << " should " << (polarity ? "":"NOT ")
                     << "be in " << atom[1] << std::endl;
-      d_equalityEngine.assertPredicate(atom, polarity, fact);
-      if(d_conflict) break;
       assertMemebership(fact, fact, /* learnt = */ false);
       break;
 
     default:
       Unhandled(fact.getKind());
     }
+    finishPropagation();
+
+    Debug("sets") << "[sets]"
+                  << "  in conflict = " << d_conflict
+                  << ", is complete = " << isComplete()
+                  << std::endl;
+
     if(d_conflict && !d_equalityEngine.consistent()) continue;
-
-    // Handle membership predicates
-    if(atom.getKind() == kind::IN) {
-
-      Debug("sets") << "[sets]"
-                    << "  in conflict = " << d_conflict
-                    << ", is complete = " << isComplete()
-                    << std::endl;
-
-      if(d_conflict) {
-        Node conflictNode = explain(fact);
-        d_external.d_out->conflict(conflictNode);
-      }
-    }
+    Assert(!d_conflict);
+    Assert(d_equalityEngine.consistent());
   }
 
   if(!isComplete()) {
@@ -640,7 +632,6 @@ void TheorySetsPrivate::conflict(TNode a, TNode b)
   } else {
     d_conflictNode = explain(a.eqNode(b));
   }
-  // d_conflictNode = explain(a.iffNode(b));
   d_external.d_out->conflict(d_conflictNode);
   Debug("sets") << "[sets] conflict: " << a << " iff " << b
                 << ", explaination " << d_conflictNode << std::endl;
@@ -659,7 +650,6 @@ Node TheorySetsPrivate::explain(TNode literal)
      d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
   } else if(!d_equalityEngine.consistent() && atom.getKind() == kind::IN) {
     d_equalityEngine.explainPredicate(atom, polarity, assumptions);
-    // getCurrentAssertions(assumptions);
   } else {
     Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " << polarity << "); kind" << atom.getKind() << std::endl;
     Unhandled();
