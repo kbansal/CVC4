@@ -208,6 +208,21 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
   std::set<TNode> all;
   all.insert(conjunctions.begin(), conjunctions.end());
 
+  for (unsigned i = 0; i < conjunctions.size(); ++i) {
+    TNode t = conjunctions[i];
+    if (t.getKind() == kind::AND) {
+      for(TNode::iterator child_it = t.begin();
+          child_it != t.end(); ++child_it) {
+        all.insert(*child_it);
+      }
+    }
+    else {
+      all.insert(t);
+    }
+  }
+
+  Assert(all.size() > 0);
+
   if (all.size() == 1) {
     // All the same, or just one
     return conjunctions[0];
@@ -273,7 +288,9 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   }
 
   // assert fact & check for conflict
-  if(learnt) d_nodeSaver.insert(reason);
+  if(learnt) {
+    registerReason(reason, true);
+  }
   d_equalityEngine.assertPredicate(atom, polarity, reason);
 
   if(!d_equalityEngine.consistent()) {
@@ -301,8 +318,7 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
       if(polarity && S.getKind() == kind::EMPTYSET) {
         Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
                            << std::endl;
-        TNode true_atom = NodeManager::currentNM()->mkConst<bool>(true);
-        learnLiteral(true_atom, /* polarity = */ false, cur_atom);
+        learnLiteral(cur_atom, false, cur_atom);
         Assert(d_conflict);
         return;
       }// propagation: empty set
@@ -313,8 +329,7 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
                          << x << element_of_str << S << std::endl;
       if(S.getKind() == kind::UNION ||
          S.getKind() == kind::INTERSECTION ||
-         S.getKind() == kind::SETMINUS || 
-         S.getKind() == kind::SET_SINGLETON) {
+         S.getKind() == kind::SETMINUS) {
         doSettermPropagation(x, S);
         if(d_conflict) return;
       }// propagation: children
@@ -447,6 +462,27 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   }
 }
 
+void TheorySetsPrivate::registerReason(TNode reason, bool save)
+{
+  if(save) d_nodeSaver.insert(reason);
+
+  if(reason.getKind() == kind::AND) {
+    Assert(reason.getNumChildren() == 2);
+    registerReason(reason[0], false);
+    registerReason(reason[1], false);
+  } else if(reason.getKind() == kind::NOT) {
+    registerReason(reason[0], false);
+  } else if(reason.getKind() == kind::IN) {
+    d_equalityEngine.addTriggerPredicate(reason);
+    Assert(present(reason));
+  } else if(reason.getKind() == kind::EQUAL) {
+    d_equalityEngine.addTriggerEquality(reason);
+  } else {
+    Unhandled();
+  }
+}
+
+
 void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
   Debug("sets-learn") << "[sets-learn] learnLiteral(" << atom
                       << ", " << polarity << ")" << std::endl;
@@ -458,7 +494,9 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
 
   if( holds(atom, !polarity) ) {
     Debug("sets-learn") << "[sets-learn] \u2514 conflict found" << std::endl;
-    d_nodeSaver.insert(reason);
+    
+    registerReason(reason, /*save=*/ true);
+
     if(atom.getKind() == kind::EQUAL) {
       d_equalityEngine.assertEquality(atom, polarity, reason);
     } else {
@@ -649,6 +687,9 @@ Node TheorySetsPrivate::explain(TNode literal)
   if(!d_equalityEngine.consistent() && (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) ) {
      d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
   } else if(!d_equalityEngine.consistent() && atom.getKind() == kind::IN) {
+    if(d_equalityEngine.hasTerm(atom) == false) {
+      d_equalityEngine.addTriggerPredicate(atom);
+    }
     d_equalityEngine.explainPredicate(atom, polarity, assumptions);
   } else {
     Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " << polarity << "); kind" << atom.getKind() << std::endl;

@@ -93,6 +93,7 @@ private:
   context::CDQueue< std::pair<Node, Node> > d_propagationQueue;
 
   void doSettermPropagation(TNode x, TNode S);
+  void registerReason(TNode reason, bool save);
   void learnLiteral(TNode atom, bool polarity, Node reason);
   void learnLiteral(TNode lit, Node reason) {
     if(lit.getKind() == kind::NOT) {
