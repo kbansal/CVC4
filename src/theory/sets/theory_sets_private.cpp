@@ -255,8 +255,10 @@ bool  TheorySetsPrivate::present(TNode atom) {
 }
 bool TheorySetsPrivate::holds(TNode atom, bool polarity) {
   Node polarity_atom = NodeManager::currentNM()->mkConst<bool>(polarity);
-  Node atomModEq = IN( d_equalityEngine.getRepresentative(atom[0]),
-                  d_equalityEngine.getRepresentative(atom[1]) );
+  NodeBuilder< > nb(atom.getKind());
+  nb << d_equalityEngine.getRepresentative(atom[0])
+     << d_equalityEngine.getRepresentative(atom[1]);
+  Node atomModEq = nb.constructNode();
   return 
     d_equalityEngine.hasTerm(atomModEq) &&
     d_equalityEngine.areEqual(atomModEq, polarity_atom);
@@ -329,7 +331,8 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
                          << x << element_of_str << S << std::endl;
       if(S.getKind() == kind::UNION ||
          S.getKind() == kind::INTERSECTION ||
-         S.getKind() == kind::SETMINUS) {
+         S.getKind() == kind::SETMINUS ||
+         S.getKind() == kind::SET_SINGLETON) {
         doSettermPropagation(x, S);
         if(d_conflict) return;
       }// propagation: children
