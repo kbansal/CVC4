@@ -266,12 +266,21 @@ bool TheorySetsPrivate::holds(TNode atom, bool polarity) {
 
 void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
 {
-  Assert(learnt == false);
-
   bool polarity = fact.getKind() != kind::NOT;
   TNode atom = polarity ? fact : fact[0];
 
+  if(learnt) {
+    registerReason(reason, /*save=*/ true);
+  }
+
   d_equalityEngine.assertEquality(atom, polarity, fact);
+
+  if(!d_equalityEngine.consistent()) {
+    Debug("sets-mem") << "[sets-eq] TheorySetsPrivate::assertEquality "
+                      << "running into a conflict" << std::endl;
+    d_conflict = true;
+    return;
+  }
 }
 
 void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
@@ -381,11 +390,15 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
     left_literal  =       IN(x, S[0])   ;
     right_literal = NOT(  IN(x, S[1])  );
     break;
-  case kind::SET_SINGLETON:
-    if(not (x == S[0] && holds(IN(x, S)))) {
-      learnLiteral(EQUAL(x, S[0]), true, IN(x, S));
+  case kind::SET_SINGLETON: {
+    Node atom = IN(x, S);
+    if(holds(atom, true)) {
+      learnLiteral(EQUAL(x, S[0]), true, atom);
+    } else if(holds(atom, false)) {
+      learnLiteral(EQUAL(x, S[0]), false, NOT(atom));
     }
     return;
+  }
   default:
     Unhandled();
   }
@@ -480,6 +493,7 @@ void TheorySetsPrivate::registerReason(TNode reason, bool save)
     Assert(present(reason));
   } else if(reason.getKind() == kind::EQUAL) {
     d_equalityEngine.addTriggerEquality(reason);
+    Assert(holds(reason, true) || holds(reason, false));
   } else {
     Unhandled();
   }
