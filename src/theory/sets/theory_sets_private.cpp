@@ -133,7 +133,6 @@ public:
 #endif
     }
 
-
     d_info[x]->addToSetList(S, polarity);
     d_info[S]->addToElementList(x, polarity);
   }
@@ -266,35 +265,49 @@ bool TheorySetsPrivate::holds(TNode atom, bool polarity) {
 
 void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
 {
+  Debug("sets-assert") << "\n[sets-assert] adding equality: " << fact
+                    << ", " << reason
+                    << ", " << learnt << std::endl;
+
   bool polarity = fact.getKind() != kind::NOT;
   TNode atom = polarity ? fact : fact[0];
 
+  // fact already holds
+  if( holds(atom, polarity) ) {
+    Debug("sets-assert") << "[sets-assert]   already present, skipping" << std::endl;
+    return;
+  }
+
+  // assert fact & check for conflict
   if(learnt) {
     registerReason(reason, /*save=*/ true);
   }
-
-  d_equalityEngine.assertEquality(atom, polarity, fact);
+  d_equalityEngine.assertEquality(atom, polarity, reason);
 
   if(!d_equalityEngine.consistent()) {
-    Debug("sets-mem") << "[sets-eq] TheorySetsPrivate::assertEquality "
-                      << "running into a conflict" << std::endl;
+    Debug("sets-assert") << "[sets-assert]   running into a conflict" << std::endl;
     d_conflict = true;
     return;
   }
+
+  if(!polarity && atom[0].getType().isSet()) {
+    addToPending(atom);
+  }
+
 }
 
 void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
 {
-  Debug("sets-mem") << "\n[sets-mem] adding ( " << fact
-                    << ", " << reason
-                    << ", " << learnt << std::endl;
+  Debug("sets-assert") << "\n[sets-assert] adding membership: " << fact
+                       << ", " << reason
+                       << ", " << learnt << std::endl;
 
   bool polarity = fact.getKind() == kind::NOT ? false : true;
   TNode atom = polarity ? fact : fact[0];
 
   // fact already holds
   if( holds(atom, polarity) ) {
-    Debug("sets-mem") << "[sets-mem]   already present, skipping" << std::endl;
+    Debug("sets-assert") << "[sets-assert]   already present, skipping" << std::endl;
     return;
   }
 
@@ -305,7 +318,7 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   d_equalityEngine.assertPredicate(atom, polarity, reason);
 
   if(!d_equalityEngine.consistent()) {
-    Debug("sets-mem") << "[sets-mem]   running into a conflict" << std::endl;
+    Debug("sets-assert") << "[sets-assert]   running into a conflict" << std::endl;
     d_conflict = true;
     return;
   }
