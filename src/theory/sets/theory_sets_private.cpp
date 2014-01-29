@@ -246,7 +246,7 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
 /********************** TheorySetsPrivate::*() ***************************/
 
 bool  TheorySetsPrivate::present(TNode atom) {
-  Assert(atom.getKind() == kind::IN);
+  // Assert(atom.getKind() == kind::IN);
   return holds(atom) || holds(atom.notNode());
   // Node atom_rep = IN( d_equalityEngine.getRepresentative(atom[0]),
   //                     d_equalityEngine.getRepresentative(atom[1]) );
@@ -416,6 +416,19 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
     Unhandled();
   }
 
+  Debug("sets-prop-details")
+    << "[sets-prop-details]   " << literal << " IFF " << left_literal 
+    << " AND " << right_literal << std::endl;
+  
+  Debug("sets-prop-details")
+    << "[sets-prop-details]   "
+    << (holds(literal) ? "yes" : (holds(literal.negate()) ? " no" : " _ "))
+    << " IFF "
+    << (holds(left_literal) ? "yes" : (holds(left_literal.negate()) ? "no " : " _ "))
+    << " AND "
+    << (holds(right_literal) ? "yes" : (holds(right_literal.negate()) ? "no " : " _ "))
+    << std::endl;
+
   Assert( present( IN(x, S)    ) || 
           present( IN(x, S[0]) ) || 
           present( IN(x, S[1]) ) );
@@ -506,7 +519,7 @@ void TheorySetsPrivate::registerReason(TNode reason, bool save)
     Assert(present(reason));
   } else if(reason.getKind() == kind::EQUAL) {
     d_equalityEngine.addTriggerEquality(reason);
-    Assert(holds(reason, true) || holds(reason, false));
+    Assert(present(reason));
   } else {
     Unhandled();
   }
