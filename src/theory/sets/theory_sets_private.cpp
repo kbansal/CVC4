@@ -601,7 +601,7 @@ Node TheorySetsPrivate::getLemma() {
     // d_equalityEngine.addTerm(l2);
     // d_terms.insert(x);
 
-    lemma = OR(AND(l1, NOT(l2)), AND(NOT(l1), l2)); 
+    lemma = OR(n, AND(l1, NOT(l2)), AND(NOT(l1), l2)); 
   }
 
   Debug("sets-lemma") << "[sets-lemma] " << lemma << std::endl;

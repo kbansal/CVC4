@@ -17,6 +17,12 @@ static Node OR(TNode a, TNode b) {
   return nb.constructNode();
 }
 
+static Node OR(TNode a, TNode b, TNode c) {
+  NodeBuilder< > nb(kind::OR);
+  nb << a << b << c;
+  return nb.constructNode();
+}
+
 static Node IN(TNode a, TNode b) {
   NodeBuilder< > nb(kind::IN);
   nb << a << b ;
