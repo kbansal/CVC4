@@ -108,7 +108,6 @@ private:
   context::CDHashSet <Node, NodeHashFunction> d_nodeSaver;
 
   /** Lemmas and helper functions */
-  context::CDO<bool> d_complete;
   context::CDQueue <TNode> d_pending;
   context::CDQueue <TNode> d_pendingDisequal;
   context::CDHashSet <Node, NodeHashFunction> d_pendingEverInserted;

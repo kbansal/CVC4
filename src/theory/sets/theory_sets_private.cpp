@@ -637,10 +637,9 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_termInfoManager(NULL),
   d_propagationQueue(c),
   d_nodeSaver(c),
-  d_complete(c),
-  d_pending(c),
-  d_pendingDisequal(c),
-  d_pendingEverInserted(c)
+  d_pending(u),
+  d_pendingDisequal(u),
+  d_pendingEverInserted(u)
 {
   d_termInfoManager = new TheorySetsTermInfoManager(c, &d_equalityEngine);
 
