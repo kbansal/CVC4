@@ -520,6 +520,8 @@ void TheorySetsPrivate::registerReason(TNode reason, bool save)
   } else if(reason.getKind() == kind::EQUAL) {
     d_equalityEngine.addTriggerEquality(reason);
     Assert(present(reason));
+  } else if(reason.getKind() == kind::CONST_BOOLEAN) {
+    // That's OK, already in EqEngine
   } else {
     Unhandled();
   }
@@ -759,7 +761,11 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
     d_equalityEngine.addTriggerTerm(node, THEORY_SETS);
     d_equalityEngine.addTerm(node);
   }
-
+  if(node.getKind() == kind::SET_SINGLETON) {
+    Node true_node = NodeManager::currentNM()->mkConst<bool>(true);
+    learnLiteral(IN(node[0], node), true, true_node);
+    //intentional fallthrough
+  }
 }
 
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerEquality(TNode equality, bool value)
