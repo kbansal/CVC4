@@ -4,11 +4,41 @@ namespace CVC4 {
 namespace theory {
 namespace sets {
 
+bool checkConstantMembership(TNode elementTerm, TNode setTerm)
+{
+  switch(setTerm.getKind()) {
+  case kind::EMPTYSET:
+    return false;
+  case kind::SET_SINGLETON:
+    return elementTerm == setTerm[0];
+  case kind::UNION:
+    return checkConstantMembership(elementTerm, setTerm[0]) ||
+      checkConstantMembership(elementTerm, setTerm[1]);
+  case kind::INTERSECTION:
+    return checkConstantMembership(elementTerm, setTerm[0]) &&
+      checkConstantMembership(elementTerm, setTerm[1]);
+  case kind::SETMINUS:
+    return checkConstantMembership(elementTerm, setTerm[0]) &&
+      !checkConstantMembership(elementTerm, setTerm[1]);
+  default:
+    Unhandled();
+  }
+}
+
 // static
 RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
   NodeManager* nm = NodeManager::currentNM();
 
   switch(node.getKind()) {
+
+  case kind::IN: {
+    if(!node[0].isConst() || !node[1].isConst())
+      break;
+
+    // both are constants
+    bool isMember = checkConstantMembership(node[0], node[1]);
+    return RewriteResponse(REWRITE_DONE, nm->mkConst(isMember));
+  }
 
   case kind::SUBSET: {
     // rewrite (A subset-or-equal B) as (A union B = B) 

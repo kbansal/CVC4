@@ -127,6 +127,19 @@ struct SetSingletonTypeRule {
   }
 };/* struct SetInTypeRule */
 
+struct SetConstTypeRule {
+  inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
+    switch(n.getKind()) {
+    case kind::SET_SINGLETON:
+      return n[0].isConst();
+    case kind::UNION:
+      return n[0].isConst() && n[1].isConst();
+    default:
+      Unhandled();
+    }
+  }
+};
+
 struct EmptySetTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw (TypeCheckingExceptionPrivate, AssertionException) {
