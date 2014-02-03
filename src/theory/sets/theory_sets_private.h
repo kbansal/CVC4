@@ -43,6 +43,8 @@ public:
   void preRegisterTerm(TNode node);
 
 private:
+  class TheorySetsTermInfoManager;
+
   TheorySets& d_external;
 
   /** Functions to handle callbacks from equality engine */
@@ -91,6 +93,7 @@ private:
   /** Propagation / learning and helper functions. */
 
   context::CDQueue< std::pair<Node, Node> > d_propagationQueue;
+  context::CDQueue< std::pair<TNode, TNode> > d_settermPropagationQueue;
 
   void doSettermPropagation(TNode x, TNode S);
   void registerReason(TNode reason, bool save);

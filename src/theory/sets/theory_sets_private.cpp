@@ -73,14 +73,15 @@ public:
 };
 /** End: adapted from theory/arrays/array_info.cpp */
 
-class TheorySetsTermInfoManager {
+class TheorySetsPrivate::TheorySetsTermInfoManager {
+
+  TheorySetsPrivate& d_theory;
+  context::Context* d_context;
+  eq::EqualityEngine* d_eqEngine;
 
   CDNodeSet d_terms;
   hash_map<TNode, TheorySetsTermInfo*, TNodeHashFunction> d_info;
 
-  context::Context* d_context;
-
-  eq::EqualityEngine* d_eqEngine;
 
   void mergeLists(CDTNodeList* la, const CDTNodeList* lb) const{
     // straight from theory/arrays/array_info.cpp
@@ -98,11 +99,14 @@ class TheorySetsTermInfoManager {
   }
 
 public:
-  TheorySetsTermInfoManager(context::Context* sc,
+  TheorySetsTermInfoManager(TheorySetsPrivate& theory,
+                            context::Context* sc,
                             eq::EqualityEngine* eq):
-    d_terms(sc),
+    d_theory(theory),
     d_context(sc),
-    d_eqEngine(eq)
+    d_eqEngine(eq),
+    d_terms(sc),
+    d_info()
   { }
 
   ~TheorySetsTermInfoManager() {
@@ -133,7 +137,7 @@ public:
 #endif
     }
 
-    d_info[x]->addToSetList(S, polarity);
+    // d_info[x]->addToSetList(S, polarity);
     d_info[S]->addToElementList(x, polarity);
   }
 
@@ -165,17 +169,75 @@ public:
     }
   }
 
+  void pushToSettermPropagationQueue(CDTNodeList* l, TNode S, bool polarity) {
+    for(typeof(l->begin()) i = l->begin(); i != l->end(); ++i) {
+      Debug("sets-prop") << "[sets-terminfo]  setterm todo: " 
+                         << IN(*i, d_eqEngine->getRepresentative(S))
+                         << std::endl;
+      d_eqEngine->addTriggerPredicate(IN(d_eqEngine->getRepresentative(*i),
+                                         d_eqEngine->getRepresentative(S)));
+      // d_theory.registerReason(IN(*i, d_eqEngine->getRepresentative(S)), false);
+      for(eq::EqClassIterator j(d_eqEngine->getRepresentative(S), d_eqEngine); !j.isFinished(); ++j) {
+
+        TNode x = (*i);
+        TNode S = (*j);
+        Node cur_atom = IN(x, S);
+
+        // propagation : empty set
+        if(polarity && S.getKind() == kind::EMPTYSET) {
+          Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
+                             << std::endl;
+          d_theory.learnLiteral(cur_atom, false, cur_atom);
+          //Assert(d_theory.d_conflict);
+          return;
+        }// propagation: empty set
+
+        // propagation : children
+        // Debug("sets-prop") << "[sets-prop] Propagating 'down' for "
+        //                    << x << element_of_str << S << std::endl;
+        if(S.getKind() == kind::UNION ||
+           S.getKind() == kind::INTERSECTION ||
+           S.getKind() == kind::SETMINUS ||
+           S.getKind() == kind::SET_SINGLETON) {
+          d_theory.d_settermPropagationQueue.push_back(make_pair(x, S));
+        }// propagation: children
+
+        // propagation : parents
+        // Debug("sets-prop") << "[sets-prop] Propagating 'up' for "
+        //                    << x << element_of_str << S << std::endl;
+        CDTNodeList* parentList = getParents(S);
+        for(typeof(parentList->begin()) k = parentList->begin();
+            k != parentList->end(); ++k) {
+          d_theory.d_settermPropagationQueue.push_back(make_pair(x, *k));
+        }// propagation : parents
+
+
+      }//j loop
+
+    }
+    
+  }
+
   void mergeTerms(TNode a, TNode b) {
     // merge b into a
+    if(!a.getType().isSet()) return;
 
     Debug("sets-terminfo") << "[sets-terminfo] Merging (into) a = " << a
                            << ", b = " << b << std::endl;
+    Debug("sets-terminfo") << "[sets-terminfo] reps a: " << d_eqEngine->getRepresentative(a)
+                           << ", b: " << d_eqEngine->getRepresentative(b) << std::endl;
 
     typeof(d_info.begin()) ita = d_info.find(a);
     typeof(d_info.begin()) itb = d_info.find(b);
 
     Assert(ita != d_info.end());
     Assert(itb != d_info.end());
+    
+    // learnt: (elements <a> contains) now also in <b>
+    pushToSettermPropagationQueue( (*ita).second->elementsInThisSet, b, true );
+    pushToSettermPropagationQueue( (*ita).second->elementsNotInThisSet, b, false );
+    pushToSettermPropagationQueue( (*itb).second->elementsNotInThisSet, a, false );
+    pushToSettermPropagationQueue( (*itb).second->elementsInThisSet, a, true );
 
     mergeLists((*ita).second->inThisEqClass,
                (*itb).second->inThisEqClass);
@@ -386,7 +448,7 @@ TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
 
   Node literal, left_literal, right_literal;
 
-  // axiom: literal <=> left_literal ^ right_literal
+  // axiom: literal <=> left_literal AND right_literal
   switch(S.getKind()) {
   case kind::INTERSECTION:
     literal       =       IN(x, S)      ;
@@ -559,6 +621,11 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
 
 void TheorySetsPrivate::finishPropagation()
 {
+  while(!d_conflict && !d_settermPropagationQueue.empty()) {
+    std::pair<TNode,TNode> np = d_settermPropagationQueue.front();
+    d_settermPropagationQueue.pop();
+    doSettermPropagation(np.first, np.second);
+  }
   while(!d_conflict && !d_propagationQueue.empty()) {
     std::pair<Node,Node> np = d_propagationQueue.front();
     d_propagationQueue.pop();
@@ -638,12 +705,13 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_conflict(c),
   d_termInfoManager(NULL),
   d_propagationQueue(c),
+  d_settermPropagationQueue(c),
   d_nodeSaver(c),
   d_pending(u),
   d_pendingDisequal(u),
   d_pendingEverInserted(u)
 {
-  d_termInfoManager = new TheorySetsTermInfoManager(c, &d_equalityEngine);
+  d_termInfoManager = new TheorySetsTermInfoManager(*this, c, &d_equalityEngine);
 
   d_equalityEngine.addFunctionKind(kind::UNION);
   d_equalityEngine.addFunctionKind(kind::INTERSECTION);
@@ -784,7 +852,9 @@ bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerPredicate(TNode predicate, b
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyTriggerTermEquality: tag = " << tag << " t1 = " << t1 << "  t2 = " << t2 << "  value = " << value << std::endl;
-  d_theory.d_termInfoManager->mergeTerms(t1, t2);
+  if(value) {
+    d_theory.d_termInfoManager->mergeTerms(t1, t2);
+  }
   return true;
 }
 
@@ -793,6 +863,7 @@ void TheorySetsPrivate::NotifyClass::eqNotifyConstantTermMerge(TNode t1, TNode t
   Debug("sets-eq") << "[sets-eq] eqNotifyConstantTermMerge " << " t1 = " << t1 << " t2 = " << t2 << std::endl;
   d_theory.conflict(t1, t2);
 }
+
 void TheorySetsPrivate::NotifyClass::eqNotifyNewClass(TNode t)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyNewClass:" << " t = " << t << std::endl;
