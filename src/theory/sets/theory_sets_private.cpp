@@ -768,7 +768,7 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     Assert(d_equalityEngine.consistent());
   }
 
-  if(!isComplete()) {
+  if(Theory::EFFORT_FULL && !isComplete()) {
     d_external.d_out->lemma(getLemma());
   }
 
