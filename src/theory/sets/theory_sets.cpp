@@ -15,19 +15,25 @@ TheorySets::TheorySets(context::Context* c,
   d_internal(new TheorySetsPrivate(*this, c,u,out,valuation,logicInfo,qe)) {
 }
 
-TheorySets::~TheorySets() { delete d_internal; }
+TheorySets::~TheorySets() {
+  delete d_internal;
+}
 
-void
-TheorySets::check(Effort e)
-{ d_internal->check(e);}
+void TheorySets::check(Effort e) { 
+  d_internal->check(e);
+}
 
-Node
-TheorySets::explain(TNode node)
-{ return d_internal->explain(node); }
+void TheorySets::propagate(Effort e) {
+  d_internal->propagate(e);
+}
+
+Node TheorySets::explain(TNode node) {
+  return d_internal->explain(node);
+}
   
-void
-TheorySets::preRegisterTerm(TNode node)
-{ return d_internal->preRegisterTerm(node); }
+void TheorySets::preRegisterTerm(TNode node) {
+  return d_internal->preRegisterTerm(node);
+}
 
 }/* CVC4::theory::sets namespace */
 }/* CVC4::theory namespace */

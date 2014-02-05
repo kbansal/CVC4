@@ -127,7 +127,7 @@ public:
 
     Node atomModEq = IN(x, S);
     if(!d_eqEngine->hasTerm(atomModEq)) {
-      d_eqEngine->addTriggerPredicate(atomModEq);
+      d_eqEngine->addTerm(atomModEq);
 
 #if CVC4_ASSERTIONS
     // Make sure the predicate modulo equalities already holds
@@ -173,8 +173,8 @@ public:
       Debug("sets-prop") << "[sets-terminfo]  setterm todo: " 
                          << IN(*i, d_eqEngine->getRepresentative(S))
                          << std::endl;
-      d_eqEngine->addTriggerPredicate(IN(d_eqEngine->getRepresentative(*i),
-                                         d_eqEngine->getRepresentative(S)));
+      d_eqEngine->addTerm(IN(d_eqEngine->getRepresentative(*i),
+                             d_eqEngine->getRepresentative(S)));
       // d_theory.registerReason(IN(*i, d_eqEngine->getRepresentative(S)), false);
       for(eq::EqClassIterator j(d_eqEngine->getRepresentative(S), d_eqEngine); !j.isFinished(); ++j) {
 
@@ -575,10 +575,10 @@ void TheorySetsPrivate::registerReason(TNode reason, bool save)
   } else if(reason.getKind() == kind::NOT) {
     registerReason(reason[0], false);
   } else if(reason.getKind() == kind::IN) {
-    d_equalityEngine.addTriggerPredicate(reason);
+    d_equalityEngine.addTerm(reason);
     Assert(present(reason));
   } else if(reason.getKind() == kind::EQUAL) {
-    d_equalityEngine.addTriggerEquality(reason);
+    d_equalityEngine.addTerm(reason);
     Assert(present(reason));
   } else if(reason.getKind() == kind::CONST_BOOLEAN) {
     // That's OK, already in EqEngine
@@ -773,6 +773,13 @@ void TheorySetsPrivate::check(Theory::Effort level) {
   return;
 }/* TheorySetsPrivate::check() */
 
+
+void TheorySetsPrivate::propagate(Theory::Effort e)
+{
+  return;
+}
+
+
 void TheorySetsPrivate::conflict(TNode a, TNode b)
 {
   if (a.getKind() == kind::CONST_BOOLEAN) {
@@ -794,17 +801,25 @@ Node TheorySetsPrivate::explain(TNode literal)
   bool polarity = literal.getKind() != kind::NOT;
   TNode atom = polarity ? literal : literal[0];
   std::vector<TNode> assumptions;
-  if(!d_equalityEngine.consistent() && (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) ) {
+
+  if( !d_equalityEngine.consistent() &&
+      (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) ) {
+
      d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
+
   } else if(!d_equalityEngine.consistent() && atom.getKind() == kind::IN) {
-    if(d_equalityEngine.hasTerm(atom) == false) {
-      d_equalityEngine.addTriggerPredicate(atom);
+
+    if( !d_equalityEngine.hasTerm(atom)) {
+      d_equalityEngine.addTerm(atom);
     }
     d_equalityEngine.explainPredicate(atom, polarity, assumptions);
+
   } else {
-    Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " << polarity << "); kind" << atom.getKind() << std::endl;
+    Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " 
+                  << polarity << "); kind" << atom.getKind() << std::endl;
     Unhandled();
   }
+
   return mkAnd(assumptions);
 }
 
@@ -825,7 +840,7 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
   default:
     d_termInfoManager->addTerm(node);
     d_equalityEngine.addTriggerTerm(node, THEORY_SETS);
-    d_equalityEngine.addTerm(node);
+    // d_equalityEngine.addTerm(node);
   }
   if(node.getKind() == kind::SET_SINGLETON) {
     Node true_node = NodeManager::currentNM()->mkConst<bool>(true);

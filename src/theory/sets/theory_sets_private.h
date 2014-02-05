@@ -36,6 +36,8 @@ public:
 
   void check(Theory::Effort);
 
+  void propagate(Theory::Effort);
+
   Node explain(TNode);
   
   std::string identify() const { return "THEORY_SETS_PRIVATE"; }
