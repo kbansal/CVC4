@@ -82,7 +82,6 @@ class TheorySetsPrivate::TheorySetsTermInfoManager {
   CDNodeSet d_terms;
   hash_map<TNode, TheorySetsTermInfo*, TNodeHashFunction> d_info;
 
-
   void mergeLists(CDTNodeList* la, const CDTNodeList* lb) const{
     // straight from theory/arrays/array_info.cpp
     std::set<TNode> temp;
@@ -274,6 +273,7 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
     if (t.getKind() == kind::AND) {
       for(TNode::iterator child_it = t.begin();
           child_it != t.end(); ++child_it) {
+        // Assert(child_it->getKind() != kind::AND);
         all.insert(*child_it);
       }
     }
@@ -389,52 +389,50 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
   d_termInfoManager->notifyMembership(fact);
 
   // propagation
-  for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
-                            &d_equalityEngine); !i.isFinished(); ++i) {
+  TNode x = d_equalityEngine.getRepresentative(atom[0]);
+  eq::EqClassIterator j(d_equalityEngine.getRepresentative(atom[1]),
+                        &d_equalityEngine);
+  TNode S = (*j);
+  Node cur_atom = IN(x, S);
 
-    for(eq::EqClassIterator j(d_equalityEngine.getRepresentative(atom[1]),
-                              &d_equalityEngine); !j.isFinished(); ++j) {
+  // propagation : empty set (this check works outside the loop as
+  //  constant term is guaranteed to be class representative)
+  if(polarity && S.getKind() == kind::EMPTYSET) {
+    Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
+                       << std::endl;
+    learnLiteral(cur_atom, false, cur_atom);
+    Assert(d_conflict);
+    return;
+  }// propagation: empty set
 
-      TNode x = (*i);
-      TNode S = (*j);
-      Node cur_atom = IN(x, S);
+  for(; !j.isFinished(); ++j) {
+    TNode S = (*j);
+    Node cur_atom = IN(x, S);
 
-
-      // propagation : empty set
-      if(polarity && S.getKind() == kind::EMPTYSET) {
-        Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
-                           << std::endl;
-        learnLiteral(cur_atom, false, cur_atom);
-        Assert(d_conflict);
-        return;
-      }// propagation: empty set
-
-
-      // propagation : children
-      Debug("sets-prop") << "[sets-prop] Propagating 'down' for "
-                         << x << element_of_str << S << std::endl;
-      if(S.getKind() == kind::UNION ||
-         S.getKind() == kind::INTERSECTION ||
-         S.getKind() == kind::SETMINUS ||
-         S.getKind() == kind::SET_SINGLETON) {
-        doSettermPropagation(x, S);
-        if(d_conflict) return;
-      }// propagation: children
-
-
-      // propagation : parents
-      Debug("sets-prop") << "[sets-prop] Propagating 'up' for "
-                         << x << element_of_str << S << std::endl;
-      CDTNodeList* parentList = d_termInfoManager->getParents(S);
-      for(typeof(parentList->begin()) k = parentList->begin();
-          k != parentList->end(); ++k) {
-        doSettermPropagation(x, *k);
-        if(d_conflict) return;
-      }// propagation : parents
+    // propagation : children
+    Debug("sets-prop") << "[sets-prop] Propagating 'down' for "
+                       << x << element_of_str << S << std::endl;
+    if(S.getKind() == kind::UNION ||
+       S.getKind() == kind::INTERSECTION ||
+       S.getKind() == kind::SETMINUS ||
+       S.getKind() == kind::SET_SINGLETON) {
+      doSettermPropagation(x, S);
+      if(d_conflict) return;
+    }// propagation: children
 
 
-    }//j loop
-  }//i loop
+    // propagation : parents
+    Debug("sets-prop") << "[sets-prop] Propagating 'up' for "
+                       << x << element_of_str << S << std::endl;
+    CDTNodeList* parentList = d_termInfoManager->getParents(S);
+    for(typeof(parentList->begin()) k = parentList->begin();
+        k != parentList->end(); ++k) {
+      doSettermPropagation(x, *k);
+      if(d_conflict) return;
+    }// propagation : parents
+
+
+  }//j loop
 
 }
 
