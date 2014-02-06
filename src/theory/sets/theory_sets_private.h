@@ -45,9 +45,19 @@ public:
   void preRegisterTerm(TNode node);
 
 private:
+  TheorySets& d_external;
+
   class TheorySetsTermInfoManager;
 
-  TheorySets& d_external;
+  class Statistics {
+
+  public:
+
+    TimerStat d_checkTime;
+    
+    Statistics();
+    ~Statistics();
+  } d_statistics;
 
   /** Functions to handle callbacks from equality engine */
   class NotifyClass : public eq::EqualityEngineNotify {
@@ -71,14 +81,10 @@ private:
   context::CDO<bool> d_conflict;
   Node d_conflictNode;
 
+  bool propagate(TNode);
   void conflict(TNode, TNode);
 
   TheorySetsTermInfoManager* d_termInfoManager;
-
-  struct AtomInfo {
-    bool polarity;
-    bool learnt;
-  };
 
   /** Assertions and helper functions */
   bool present(TNode atom);

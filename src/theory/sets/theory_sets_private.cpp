@@ -1,7 +1,11 @@
+
 #include "theory/sets/theory_sets.h"
 #include "theory/sets/theory_sets_private.h"
-#include "util/result.h"
+
+#include "theory/sets/options.h"
 #include "theory/sets/expr_patterns.h" // ONLY included here
+
+#include "util/result.h"
 
 using namespace std;
 using namespace CVC4::expr::pattern;
@@ -306,6 +310,15 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
 /********************** TheorySetsPrivate::*() ***************************/
 /********************** TheorySetsPrivate::*() ***************************/
 /********************** TheorySetsPrivate::*() ***************************/
+
+TheorySetsPrivate::Statistics::Statistics() :
+  d_checkTime("theory::sets::time") {
+  StatisticsRegistry::registerStat(&d_checkTime);
+}
+
+TheorySetsPrivate::Statistics::~Statistics() {
+  StatisticsRegistry::unregisterStat(&d_checkTime);
+}
 
 bool  TheorySetsPrivate::present(TNode atom) {
   // Assert(atom.getKind() == kind::IN);
@@ -726,6 +739,8 @@ TheorySetsPrivate::~TheorySetsPrivate()
 
 void TheorySetsPrivate::check(Theory::Effort level) {
 
+  CodeTimer checkCodeTimer(d_statistics.d_checkTime);
+
   while(!d_external.done() && !d_conflict) {
     // Get all the assertions
     Assertion assertion = d_external.get();
@@ -766,7 +781,7 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     Assert(d_equalityEngine.consistent());
   }
 
-  if(Theory::EFFORT_FULL && !isComplete()) {
+  if( (Theory::EFFORT_FULL || options::setsEagerLemmas() ) && !isComplete()) {
     d_external.d_out->lemma(getLemma());
   }
 
@@ -778,6 +793,24 @@ void TheorySetsPrivate::propagate(Theory::Effort e)
 {
   return;
 }
+
+bool TheorySetsPrivate::propagate(TNode literal) {
+  Debug("sets-prop") << " propagate(" << literal  << ")" << std::endl;
+
+  // If already in conflict, no more propagation
+  if (d_conflict) {
+    Debug("sets-prop") << "TheoryUF::propagate(" << literal << "): already in conflict" << std::endl;
+    return false;
+  }
+
+  // Propagate out
+  bool ok = d_external.d_out->propagate(literal);
+  if (!ok) {
+    d_conflict = true;
+  }
+
+  return ok;
+}/* TheorySetsPropagate::propagate(TNode) */
 
 
 void TheorySetsPrivate::conflict(TNode a, TNode b)
@@ -802,18 +835,13 @@ Node TheorySetsPrivate::explain(TNode literal)
   TNode atom = polarity ? literal : literal[0];
   std::vector<TNode> assumptions;
 
-  if( !d_equalityEngine.consistent() &&
-      (atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) ) {
-
+  if(atom.getKind() == kind::EQUAL || atom.getKind() == kind::IFF) {
      d_equalityEngine.explainEquality(atom[0], atom[1], polarity, assumptions);
-
-  } else if(!d_equalityEngine.consistent() && atom.getKind() == kind::IN) {
-
+  } else if(atom.getKind() == kind::IN) {
     if( !d_equalityEngine.hasTerm(atom)) {
       d_equalityEngine.addTerm(atom);
     }
     d_equalityEngine.explainPredicate(atom, polarity, assumptions);
-
   } else {
     Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " 
                   << polarity << "); kind" << atom.getKind() << std::endl;
@@ -852,14 +880,22 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerEquality(TNode equality, bool value)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyTriggerEquality: equality = " << equality << " value = " << value << std::endl;
-  // d_membershipEngine->eqNotifyEqual(equality, value);
-  return true;
+  if (value) {
+    return d_theory.propagate(equality);
+  } else {
+    // We use only literal triggers so taking not is safe
+    return d_theory.propagate(equality.notNode());
+  }
 }
 
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerPredicate(TNode predicate, bool value)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyTriggerPredicate: predicate = " << predicate << " value = " << value << std::endl;
-  return true;
+  if (value) {
+    return d_theory.propagate(predicate);
+  } else {
+    return d_theory.propagate(predicate.notNode());
+  }
 }
 
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerTermEquality(TheoryId tag, TNode t1, TNode t2, bool value)
