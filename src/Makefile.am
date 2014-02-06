@@ -225,6 +225,7 @@ libcvc4_la_SOURCES = \
 	theory/sets/theory_sets_private.cpp \
 	theory/sets/theory_sets_rewriter.h \
 	theory/sets/theory_sets_rewriter.cpp \
+	theory/sets/theory_sets_private_term_info_manager.cpp \
 	theory/sets/theory_sets_type_rules.h \
 	theory/strings/theory_strings.h \
 	theory/strings/theory_strings.cpp \

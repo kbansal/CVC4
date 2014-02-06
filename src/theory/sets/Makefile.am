@@ -12,6 +12,7 @@ libsets_la_SOURCES = \
 	theory_sets_private.cpp \
 	theory_sets_rewriter.h \
 	theory_sets_rewriter.cpp \
+	theory_sets_private_term_info_manager.cpp \
 	theory_sets_type_rules.h \
 	theory_set_type_enumerator.h
 

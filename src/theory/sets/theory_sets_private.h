@@ -1,3 +1,19 @@
+/*********************                                                        */
+/*! \file theory_sets_private.h
+ ** \verbatim
+ ** Original author: Kshitij Bansal
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2013-2014  New York University and The University of Iowa
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Sets theory implementation.
+ **
+ ** Sets theory implementation.
+ **/
+
 #include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__SETS__THEORY_SETS_PRIVATE_H
@@ -8,6 +24,7 @@
 
 #include "theory/theory.h"
 #include "theory/uf/equality_engine.h"
+#include "theory/sets/term_info.h"
 
 namespace CVC4 {
 namespace theory {
@@ -47,12 +64,8 @@ public:
 private:
   TheorySets& d_external;
 
-  class TheorySetsTermInfoManager;
-
   class Statistics {
-
   public:
-
     TimerStat d_checkTime;
     
     Statistics();
@@ -81,10 +94,33 @@ private:
   context::CDO<bool> d_conflict;
   Node d_conflictNode;
 
+  /** Proagate out to output channel */
   bool propagate(TNode);
+
+  /** */
   void conflict(TNode, TNode);
 
-  TheorySetsTermInfoManager* d_termInfoManager;
+  class TermInfoManager {
+    TheorySetsPrivate& d_theory;
+    context::Context* d_context;
+    eq::EqualityEngine* d_eqEngine;
+
+    CDNodeSet d_terms;
+    std::hash_map<TNode, TheorySetsTermInfo*, TNodeHashFunction> d_info;
+
+    void mergeLists(CDTNodeList* la, const CDTNodeList* lb) const;
+    void pushToSettermPropagationQueue(CDTNodeList* l, TNode S, bool polarity);
+  public:
+    TermInfoManager(TheorySetsPrivate&,
+                    context::Context* satContext,
+                    eq::EqualityEngine*);
+    ~TermInfoManager();
+    void notifyMembership(TNode fact);
+    CDTNodeList* getParents(TNode x);
+    void addTerm(TNode n);
+    void mergeTerms(TNode a, TNode b);
+  };
+  TermInfoManager* d_termInfoManager;
 
   /** Assertions and helper functions */
   bool present(TNode atom);
