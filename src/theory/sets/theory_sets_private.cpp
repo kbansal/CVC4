@@ -214,7 +214,7 @@ void TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   switch(S.getKind()) {
   case kind::INTERSECTION:
     literal       =       IN(x, S)      ;
-    left_literal  =       IN(x, S[0])   ; 
+    left_literal  =       IN(x, S[0])   ;
     right_literal =       IN(x, S[1])   ;
     break;
   case kind::UNION:
@@ -241,9 +241,9 @@ void TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   }
 
   Debug("sets-prop-details")
-    << "[sets-prop-details]   " << literal << " IFF " << left_literal 
+    << "[sets-prop-details]   " << literal << " IFF " << left_literal
     << " AND " << right_literal << std::endl;
-  
+
   Debug("sets-prop-details")
     << "[sets-prop-details]   "
     << (holds(literal) ? "yes" : (holds(literal.negate()) ? " no" : " _ "))
@@ -253,8 +253,8 @@ void TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
     << (holds(right_literal) ? "yes" : (holds(right_literal.negate()) ? "no " : " _ "))
     << std::endl;
 
-  Assert( present( IN(x, S)    ) || 
-          present( IN(x, S[0]) ) || 
+  Assert( present( IN(x, S)    ) ||
+          present( IN(x, S[0]) ) ||
           present( IN(x, S[1]) ) );
 
   if( holds(literal) ) {
@@ -275,7 +275,7 @@ void TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
     // 4. neg(literal), left_literal => neg(right_literal)
     if( holds(left_literal) ) {
       Debug("sets-prop") << "[sets-prop]  ... via case 4. ..." << std::endl;
-      learnLiteral(right_literal.negate(), AND( literal.negate(), 
+      learnLiteral(right_literal.negate(), AND( literal.negate(),
                                                 left_literal) );
       if(d_conflict) return;
     }
@@ -313,7 +313,7 @@ void TheorySetsPrivate::doSettermPropagation(TNode x, TNode S)
   Node n;
   switch(S.getKind()) {
   case kind::UNION:
-    if( holds(IN(x, S)) &&  
+    if( holds(IN(x, S)) &&
         !present( IN(x, S[0]) ) )
       addToPending( IN(x, S[0]) );
     break;
@@ -340,7 +340,7 @@ void TheorySetsPrivate::learnLiteral(TNode atom, bool polarity, Node reason) {
 
   if( holds(atom, !polarity) ) {
     Debug("sets-learn") << "[sets-learn] \u2514 conflict found" << std::endl;
-    
+
     registerReason(reason, /*save=*/ true);
 
     if(atom.getKind() == kind::EQUAL) {
@@ -517,7 +517,7 @@ Node TheorySetsPrivate::getLemma() {
     // d_equalityEngine.addTerm(l2);
     // d_terms.insert(x);
 
-    lemma = OR(n, AND(l1, NOT(l2)), AND(NOT(l1), l2)); 
+    lemma = OR(n, AND(l1, NOT(l2)), AND(NOT(l1), l2));
   }
 
   Debug("sets-lemma") << "[sets-lemma] " << lemma << std::endl;
@@ -616,7 +616,7 @@ Node TheorySetsPrivate::explain(TNode literal)
     }
     d_equalityEngine.explainPredicate(atom, polarity, assumptions);
   } else {
-    Debug("sets") << "unhandled: " << literal << "; (" << atom << ", " 
+    Debug("sets") << "unhandled: " << literal << "; (" << atom << ", "
                   << polarity << "); kind" << atom.getKind() << std::endl;
     Unhandled();
   }
@@ -777,7 +777,7 @@ void TheorySetsPrivate::TermInfoManager::addTerm(TNode n) {
 
   if(n.getKind() == kind::UNION ||
      n.getKind() == kind::INTERSECTION ||
-     n.getKind() == kind::SETMINUS || 
+     n.getKind() == kind::SETMINUS ||
      n.getKind() == kind::SET_SINGLETON) {
 
     for(unsigned i = 0; i < numChild; ++i) {
@@ -795,7 +795,7 @@ void TheorySetsPrivate::TermInfoManager::pushToSettermPropagationQueue
 (CDTNodeList* l, TNode S, bool polarity)
 {
   for(typeof(l->begin()) i = l->begin(); i != l->end(); ++i) {
-    Debug("sets-prop") << "[sets-terminfo]  setterm todo: " 
+    Debug("sets-prop") << "[sets-terminfo]  setterm todo: "
                        << IN(*i, d_eqEngine->getRepresentative(S))
                        << std::endl;
 
@@ -836,7 +836,7 @@ void TheorySetsPrivate::TermInfoManager::pushToSettermPropagationQueue
     }//j loop
 
   }
-    
+
 }
 
 void TheorySetsPrivate::TermInfoManager::mergeTerms(TNode a, TNode b) {
@@ -846,7 +846,7 @@ void TheorySetsPrivate::TermInfoManager::mergeTerms(TNode a, TNode b) {
 
   Debug("sets-terminfo") << "[sets-terminfo] Merging (into) a = " << a
                          << ", b = " << b << std::endl;
-  Debug("sets-terminfo") << "[sets-terminfo] reps" 
+  Debug("sets-terminfo") << "[sets-terminfo] reps"
                          << ", a: " << d_eqEngine->getRepresentative(a)
                          << ", b: " << d_eqEngine->getRepresentative(b)
                          << std::endl;
@@ -856,7 +856,7 @@ void TheorySetsPrivate::TermInfoManager::mergeTerms(TNode a, TNode b) {
 
   Assert(ita != d_info.end());
   Assert(itb != d_info.end());
-    
+
   pushToSettermPropagationQueue( (*ita).second->elementsInThisSet, b, true );
   pushToSettermPropagationQueue( (*ita).second->elementsNotInThisSet, b, false );
   pushToSettermPropagationQueue( (*itb).second->elementsNotInThisSet, a, false );

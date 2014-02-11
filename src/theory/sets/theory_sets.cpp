@@ -11,7 +11,7 @@
  **
  ** \brief Sets theory.
  **
- ** Sets theory. 
+ ** Sets theory.
  **/
 
 #include "theory/sets/theory_sets.h"
@@ -35,7 +35,7 @@ TheorySets::~TheorySets() {
   delete d_internal;
 }
 
-void TheorySets::check(Effort e) { 
+void TheorySets::check(Effort e) {
   d_internal->check(e);
 }
 
@@ -46,7 +46,7 @@ void TheorySets::propagate(Effort e) {
 Node TheorySets::explain(TNode node) {
   return d_internal->explain(node);
 }
-  
+
 void TheorySets::preRegisterTerm(TNode node) {
   return d_internal->preRegisterTerm(node);
 }

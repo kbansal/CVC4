@@ -143,7 +143,7 @@ public:
       Debug("sets-prop") << "[sets-prop] Propagating 'down' " << std::endl;
       if(S.getKind() == kind::UNION ||
          S.getKind() == kind::INTERSECTION ||
-         S.getKind() == kind::SETMINUS || 
+         S.getKind() == kind::SETMINUS ||
          S.getKind() == kind::SET_SINGLETON) {
         Assert(d_terms.find(S) != d_terms.end());
         doSettermPropagation(x, S);
@@ -164,7 +164,7 @@ public:
 
       Debug("sets-prop") << "[sets-prop] Propagating 'eq' on element"
                          << d_equalityEngine.getRepresentative(atom[0]) << std::endl;
-      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]), 
+      for(eq::EqClassIterator i(d_equalityEngine.getRepresentative(atom[0]),
                                 &d_equalityEngine); !i.isFinished(); ++i) {
 
         Debug("sets-prop-eq") << "[sets-prop-eq] " << fact << " : element : "
@@ -212,7 +212,7 @@ public:
     switch(S.getKind()) {
     case kind::INTERSECTION:
       literal       =       IN(x, S)      ;
-      left_literal  =       IN(x, S[0])   ; 
+      left_literal  =       IN(x, S[0])   ;
       right_literal =       IN(x, S[1])   ;
       break;
     case kind::UNION:
@@ -234,8 +234,8 @@ public:
       Unhandled();
     }
 
-    Assert( present( IN(x, S)    ) || 
-	    present( IN(x, S[0]) ) || 
+    Assert( present( IN(x, S)    ) ||
+	    present( IN(x, S[0]) ) ||
 	    present( IN(x, S[1]) ) );
 
     if( holds(literal) ) {
@@ -281,7 +281,7 @@ public:
     Node n;
     switch(S.getKind()) {
     case kind::UNION:
-      if( holds(IN(x, S)) &&  
+      if( holds(IN(x, S)) &&
 	  !present( IN(x, S[0]) ) )
 	addToPending( IN(x, S[0]) );
       break;
@@ -397,13 +397,13 @@ public:
   }
 
   void getCurrentAssertions(std::vector<TNode>& assumptions) {
-    Debug("sets-mem") << "[sets-mem] Current assertions:" << std::endl; 
+    Debug("sets-mem") << "[sets-mem] Current assertions:" << std::endl;
     for(typeof(d_assertions.begin()) i = d_assertions.begin();
         i != d_assertions.end(); ++i) {
       if( (*i).second.learnt) continue;
       Node literal = (*i).second.polarity ? Node((*i).first) : NOT( (*i).first);
       assumptions.push_back(literal);
-      Debug("sets-mem") << "[sets-mem]   " << literal << std::endl; 
+      Debug("sets-mem") << "[sets-mem]   " << literal << std::endl;
     }
   }
 
@@ -424,14 +424,14 @@ public:
       if(n.getKind() == kind::IN) {
 	if(n[0] == a) {
           learnLiteral(IN(b, n[1]), (*i).second.polarity);
-          if(d_conflict) return; 
+          if(d_conflict) return;
         }
-	if(n[0] == b) { 
+	if(n[0] == b) {
           learnLiteral(IN(a, n[1]), (*i).second.polarity);
           if(d_conflict) return;
         }
 	if(n[1] == a) {
-          learnLiteral(IN(n[0], b), (*i).second.polarity); 
+          learnLiteral(IN(n[0], b), (*i).second.polarity);
           if(d_conflict) return;
         }
 	if(n[1] == b) {

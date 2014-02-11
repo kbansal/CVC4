@@ -41,7 +41,7 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
   }
 
   case kind::SUBSET: {
-    // rewrite (A subset-or-equal B) as (A union B = B) 
+    // rewrite (A subset-or-equal B) as (A union B = B)
     TNode A = node[0];
     TNode B = node[1];
     return RewriteResponse(REWRITE_AGAIN,

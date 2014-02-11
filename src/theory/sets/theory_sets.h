@@ -11,7 +11,7 @@
  **
  ** \brief Sets theory.
  **
- ** Sets theory. 
+ ** Sets theory.
  **/
 
 #include "cvc4_private.h"
@@ -52,7 +52,7 @@ public:
   void propagate(Effort);
 
   Node explain(TNode);
-  
+
   std::string identify() const { return "THEORY_SETS"; }
 
   void preRegisterTerm(TNode node);

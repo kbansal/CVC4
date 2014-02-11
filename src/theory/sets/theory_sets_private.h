@@ -56,7 +56,7 @@ public:
   void propagate(Theory::Effort);
 
   Node explain(TNode);
-  
+
   std::string identify() const { return "THEORY_SETS_PRIVATE"; }
 
   void preRegisterTerm(TNode node);
@@ -67,7 +67,7 @@ private:
   class Statistics {
   public:
     TimerStat d_checkTime;
-    
+
     Statistics();
     ~Statistics();
   } d_statistics;

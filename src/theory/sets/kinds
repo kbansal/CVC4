@@ -20,7 +20,7 @@ constant EMPTYSET \
     "empty set"
 
 # types...
-operator SET_TYPE 1 "set type"   # the type 
+operator SET_TYPE 1 "set type"   # the type
 cardinality SET_TYPE \
     "::CVC4::theory::sets::SetsProperties::computeCardinality(%TYPE%)" \
     "theory/sets/theory_sets_type_rules.h"
