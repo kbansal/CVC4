@@ -1,3 +1,5 @@
+; COMMAND-LINE: --no-check-models
+; EXPECT: sat
 (set-logic QF_ALL_SUPPORTED)
 (set-info :status sat)
 (define-sort Elt () Int)

@@ -1,4 +1,4 @@
-; COMMAND-LINE: --incremental
+; COMMAND-LINE: --incremental --no-check-model
 ; EXPECT: sat
 ; EXPECT: unsat
 (set-logic ALL_SUPPORTED)
