@@ -25,10 +25,9 @@ TheorySets::TheorySets(context::Context* c,
                        context::UserContext* u,
                        OutputChannel& out,
                        Valuation valuation,
-                       const LogicInfo& logicInfo,
-                       QuantifiersEngine* qe) :
-  Theory(THEORY_SETS, c, u, out, valuation, logicInfo, qe),
-  d_internal(new TheorySetsPrivate(*this, c,u,out,valuation,logicInfo,qe)) {
+                       const LogicInfo& logicInfo) :
+  Theory(THEORY_SETS, c, u, out, valuation, logicInfo),
+  d_internal(new TheorySetsPrivate(*this, c,u,out,valuation,logicInfo,NULL)) {
 }
 
 TheorySets::~TheorySets() {

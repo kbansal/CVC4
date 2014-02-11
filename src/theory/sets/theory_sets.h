@@ -42,8 +42,7 @@ public:
                context::UserContext* u,
                OutputChannel& out,
                Valuation valuation,
-               const LogicInfo& logicInfo,
-               QuantifiersEngine* qe);
+               const LogicInfo& logicInfo);
 
   ~TheorySets();
 
