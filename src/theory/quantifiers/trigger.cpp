@@ -70,7 +70,8 @@ d_quantEngine( qe ), d_f( f ){
   //Notice() << "Trigger : " << (*this) << "  for " << f << std::endl;
   if( options::eagerInstQuant() ){
     for( int i=0; i<(int)d_nodes.size(); i++ ){
-      qe->getTermDatabase()->registerTrigger( this, d_nodes[i].getOperator() );
+      Node op = qe->getTermDatabase()->getOperator( d_nodes[i] );
+      qe->getTermDatabase()->registerTrigger( this, op );
     }
   }
   Trace("trigger-debug") << "Finished making trigger." << std::endl;
@@ -342,7 +343,7 @@ bool Trigger::isSimpleTrigger( Node n ){
 bool Trigger::collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map< Node, bool >& patMap, int tstrt, bool pol, bool hasPol ){
   if( patMap.find( n )==patMap.end() ){
     patMap[ n ] = false;
-    bool newHasPol = (n.getKind()==IFF || n.getKind()==XOR) ? false : hasPol;
+    bool newHasPol = n.getKind()==IFF ? false : hasPol;
     bool newPol = n.getKind()==NOT ? !pol : pol;
     if( tstrt==TS_MIN_TRIGGER ){
       if( n.getKind()==FORALL ){
@@ -350,9 +351,8 @@ bool Trigger::collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map<
       }else{
         bool retVal = false;
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          bool newPol2 = (n.getKind()==IMPLIES && i==0) ? !newPol : newPol;
           bool newHasPol2 = (n.getKind()==ITE && i==0) ? false : newHasPol;
-          if( collectPatTerms2( qe, f, n[i], patMap, tstrt, newPol2, newHasPol2 ) ){
+          if( collectPatTerms2( qe, f, n[i], patMap, tstrt, newPol, newHasPol2 ) ){
             retVal = true;
           }
         }
@@ -381,9 +381,8 @@ bool Trigger::collectPatTerms2( QuantifiersEngine* qe, Node f, Node n, std::map<
       }
       if( n.getKind()!=FORALL ){
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          bool newPol2 = (n.getKind()==IMPLIES && i==0) ? !newPol : newPol;
           bool newHasPol2 = (n.getKind()==ITE && i==0) ? false : newHasPol;
-          if( collectPatTerms2( qe, f, n[i], patMap, tstrt, newPol2, newHasPol2 ) ){
+          if( collectPatTerms2( qe, f, n[i], patMap, tstrt, newPol, newHasPol2 ) ){
             retVal = true;
           }
         }

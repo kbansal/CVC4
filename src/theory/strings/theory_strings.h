@@ -42,7 +42,7 @@ class TheoryStrings : public Theory {
 	typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
 
 public:
-	TheoryStrings(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo, QuantifiersEngine* qe);
+	TheoryStrings(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, const LogicInfo& logicInfo);
 	~TheoryStrings();
 
 	void setMasterEqualityEngine(eq::EqualityEngine* eq);
@@ -114,7 +114,10 @@ private:
     Node d_true;
     Node d_false;
     Node d_zero;
+	Node d_one;
+	Node d_ufSubstr;
 	// Options
+	bool d_all_warning;
 	bool d_opt_fmf;
 	bool d_opt_regexp_gcd;
 	// Helper functions
@@ -188,9 +191,11 @@ private:
 	/** map from representatives to information necessary for equivalence classes */
 	std::map< Node, EqcInfo* > d_eqc_info;
 	EqcInfo * getOrMakeEqcInfo( Node eqc, bool doMake = true );
-	//maintain which concat terms have the length lemma instantiatied
+	//maintain which concat terms have the length lemma instantiated
 	std::map< Node, bool > d_length_inst;
+	NodeBoolMap d_length_nodes;
 private:
+	void mergeCstVec(std::vector< Node > &vec_strings);
     bool getNormalForms(Node &eqc, std::vector< Node > & visited, std::vector< Node > & nf,
 						std::vector< std::vector< Node > > &normal_forms,
 						std::vector< std::vector< Node > > &normal_forms_exp,
@@ -206,16 +211,26 @@ private:
 	bool processNEqc(std::vector< std::vector< Node > > &normal_forms,
 					 std::vector< std::vector< Node > > &normal_forms_exp,
 					 std::vector< Node > &normal_form_src);
+	bool processReverseNEq(std::vector< std::vector< Node > > &normal_forms,
+						   std::vector< Node > &normal_form_src, std::vector< Node > &curr_exp, unsigned i, unsigned j );
+	bool processSimpleNEq( std::vector< std::vector< Node > > &normal_forms,
+						   std::vector< Node > &normal_form_src, std::vector< Node > &curr_exp, unsigned i, unsigned j,
+						   unsigned& index_i, unsigned& index_j, bool isRev );
     bool normalizeEquivalenceClass( Node n, std::vector< Node > & visited, std::vector< Node > & nf, std::vector< Node > & nf_exp );
-    bool normalizeDisequality( Node n1, Node n2 );
+    bool processDeq( Node n1, Node n2 );
+	int processReverseDeq( std::vector< Node >& nfi, std::vector< Node >& nfj, Node ni, Node nj );
+	int processSimpleDeq( std::vector< Node >& nfi, std::vector< Node >& nfj, Node ni, Node nj, unsigned& index, bool isRev );
 	bool unrollStar( Node atom );
 
-	bool checkLengths();
+	bool checkSimple();
     bool checkNormalForms();
 	bool checkLengthsEqc();
     bool checkCardinality();
     bool checkInductiveEquations();
 	bool checkMemberships();
+	bool checkContains();
+	bool checkPosContains();
+	bool checkNegContains();
 
 public:
 	void preRegisterTerm(TNode n);
@@ -223,11 +238,11 @@ public:
 
 	/** Conflict when merging two constants */
 	void conflict(TNode a, TNode b);
-	/** called when a new equivalance class is created */
+	/** called when a new equivalence class is created */
 	void eqNotifyNewClass(TNode t);
-	/** called when two equivalance classes will merge */
+	/** called when two equivalence classes will merge */
 	void eqNotifyPreMerge(TNode t1, TNode t2);
-	/** called when two equivalance classes have merged */
+	/** called when two equivalence classes have merged */
 	void eqNotifyPostMerge(TNode t1, TNode t2);
 	/** called when two equivalence classes are made disequal */
 	void eqNotifyDisequal(TNode t1, TNode t2, TNode reason);
@@ -240,13 +255,16 @@ protected:
 	void doPendingLemmas();
 
 	void sendLemma( Node ant, Node conc, const char * c );
-	void sendSplit( Node a, Node b, const char * c );
+	void sendInfer( Node eq_exp, Node eq, const char * c );
+	void sendSplit( Node a, Node b, const char * c, bool preq = true );
 	/** mkConcat **/
 	Node mkConcat( Node n1, Node n2 );
 	Node mkConcat( std::vector< Node >& c );
 	/** mkExplain **/
 	Node mkExplain( std::vector< Node >& a );
 	Node mkExplain( std::vector< Node >& a, std::vector< Node >& an );
+	/** mkAnd **/
+	Node mkAnd( std::vector< Node >& a );
 	/** get concat vector */
 	void getConcatVec( Node n, std::vector< Node >& c );
 
@@ -255,8 +273,8 @@ protected:
 	//get final normal form
 	void getFinalNormalForm( Node n, std::vector< Node >& nf, std::vector< Node >& exp );
 
-	//seperate into collections with equal length
-	void seperateByLength( std::vector< Node >& n, std::vector< std::vector< Node > >& col, std::vector< Node >& lts );
+	//separate into collections with equal length
+	void separateByLength( std::vector< Node >& n, std::vector< std::vector< Node > >& col, std::vector< Node >& lts );
 	void printConcat( std::vector< Node >& n, const char * c );
 
 	// Measurement
@@ -268,6 +286,13 @@ private:
 	std::map< Node, bool > d_var_lgtz;
 	Node mkSplitEq( const char * c, const char * info, Node lhs, Node rhs, bool lgtZero );
 	int getMaxPossibleLength( Node x );
+
+	// Special String Functions
+	NodeList d_str_pos_ctn;
+	NodeList d_str_neg_ctn;
+	std::map< Node, bool > d_str_ctn_eqlen;
+	std::map< Node, bool > d_str_pos_ctn_rewritten;
+	std::map< Node, bool > d_str_neg_ctn_rewritten;
 
 	// Regular Expression
 private:
@@ -303,6 +328,20 @@ public:
     Node getNextDecisionRequest();
 	void assertNode( Node lit );
 
+public:
+/** statistics class */
+  class Statistics {
+  public:
+    IntStat d_splits;
+    IntStat d_eq_splits;
+    IntStat d_deq_splits;
+    IntStat d_loop_lemmas;
+    IntStat d_unroll_lemmas;
+    IntStat d_new_skolems;
+    Statistics();
+    ~Statistics();
+  };/* class TheoryStrings::Statistics */
+  Statistics d_statistics;
 };/* class TheoryStrings */
 
 }/* CVC4::theory::strings namespace */

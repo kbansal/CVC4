@@ -39,6 +39,7 @@
 #include "util/statistics_registry.h"
 #include "util/cvc4_assert.h"
 #include "util/sort_inference.h"
+#include "theory/quantifiers/quant_conflict_find.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/bv/bv_to_bool.h"
 #include "theory/atom_requests.h"
@@ -487,7 +488,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo, getQuantifiersEngine());
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_logicInfo);
   }
 
   inline void setPropEngine(prop::PropEngine* propEngine) {
@@ -749,7 +750,7 @@ public:
   theory::EqualityStatus getEqualityStatus(TNode a, TNode b);
 
   /**
-   * Retruns the value that a theory that owns the type of var currently
+   * Returns the value that a theory that owns the type of var currently
    * has (or null if none);
    */
   Node getModelValue(TNode var);
@@ -778,10 +779,10 @@ private:
   UnconstrainedSimplifier* d_unconstrainedSimp;
 
   /** For preprocessing pass lifting bit-vectors of size 1 to booleans */
-  theory::bv::BvToBoolPreprocessor d_bvToBoolPreprocessor; 
+  theory::bv::BvToBoolPreprocessor d_bvToBoolPreprocessor;
 public:
 
-  void ppBvToBool(const std::vector<Node>& assertions, std::vector<Node>& new_assertions); 
+  void ppBvToBool(const std::vector<Node>& assertions, std::vector<Node>& new_assertions);
   Node ppSimpITE(TNode assertion);
   /** Returns false if an assertion simplified to false. */
   bool donePPSimpITE(std::vector<Node>& assertions);
@@ -789,6 +790,8 @@ public:
   void ppUnconstrainedSimp(std::vector<Node>& assertions);
 
   SharedTermsDatabase* getSharedTermsDatabase() { return &d_sharedTerms; }
+
+  theory::eq::EqualityEngine* getMasterEqualityEngine() { return d_masterEqualityEngine; }
 
   SortInference* getSortInference() { return &d_sortInfer; }
 private:

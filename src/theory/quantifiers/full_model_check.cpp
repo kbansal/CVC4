@@ -60,9 +60,9 @@ bool EntryTrie::hasGeneralization( FirstOrderModelFmc * m, Node c, int index ) {
         return true;
       }
     }
-    if( !options::fmfFmcInterval() || !c[index].getType().isInteger() ){
+    if( options::mbqiMode()!=quantifiers::MBQI_FMC_INTERVAL || !c[index].getType().isInteger() ){
       //for star: check if all children are defined and have generalizations
-      if( options::fmfFmcCoverSimplify() && c[index]==st ){
+      if( c[index]==st ){     ///options::fmfFmcCoverSimplify()
         //check if all children exist and are complete
         int num_child_def = d_child.size() - (d_child.find(st)!=d_child.end() ? 1 : 0);
         if( num_child_def==m->d_rep_set.getNumRepresentatives(tn) ){
@@ -92,7 +92,7 @@ int EntryTrie::getGeneralizationIndex( FirstOrderModelFmc * m, std::vector<Node>
     return d_data;
   }else{
     int minIndex = -1;
-    if( options::fmfFmcInterval() && inst[index].getType().isInteger() ){
+    if( options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL && inst[index].getType().isInteger() ){
       for( std::map<Node,EntryTrie>::iterator it = d_child.begin(); it != d_child.end(); ++it ){
         //if( !m->isInterval( it->first ) ){
         //  std::cout << "Not an interval during getGenIndex " << it->first << std::endl;
@@ -327,7 +327,7 @@ QModelBuilder( c, qe ){
 bool FullModelChecker::optBuildAtFullModel() {
   //need to build after full model has taken effect if we are constructing interval models
   //  this is because we need to have a constant in all integer equivalence classes
-  return options::fmfFmcInterval();
+  return options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL;
 }
 
 void FullModelChecker::processBuildModel(TheoryModel* m, bool fullModel){
@@ -443,7 +443,7 @@ void FullModelChecker::processBuildModel(TheoryModel* m, bool fullModel){
             Trace("fmc-warn") << "Warning : model has non-constant argument in model " << ri << std::endl;
           }
           children.push_back(ri);
-          if( !options::fmfFmcInterval() || !ri.getType().isInteger() ){
+          if( options::mbqiMode()!=quantifiers::MBQI_FMC_INTERVAL || !ri.getType().isInteger() ){
             if (fm->isModelBasisTerm(ri) ) {
               ri = fm->getStar( ri.getType() );
             }else{
@@ -485,7 +485,7 @@ void FullModelChecker::processBuildModel(TheoryModel* m, bool fullModel){
       }
 
 
-      if( options::fmfFmcInterval() ){
+      if( options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL ){
         convertIntervalModel( fm, op );
       }
 
@@ -588,7 +588,6 @@ bool FullModelChecker::doExhaustiveInstantiation( FirstOrderModel * fm, Node f, 
         std::vector< TypeNode > types;
         for(unsigned i=0; i<f[0].getNumChildren(); i++){
           types.push_back(f[0][i].getType());
-          d_quant_var_id[f][f[0][i]] = i;
         }
         TypeNode typ = NodeManager::currentNM()->mkFunctionType( types, NodeManager::currentNM()->booleanType() );
         Node op = NodeManager::currentNM()->mkSkolem( "fmc_$$", typ, "op created for full-model checking" );
@@ -599,7 +598,7 @@ bool FullModelChecker::doExhaustiveInstantiation( FirstOrderModel * fm, Node f, 
         initializeType( fmfmc, f[0][i].getType() );
       }
 
-      if( !options::fmfModelBasedInst() ){
+      if( options::mbqiMode()==MBQI_NONE ){
         //just exhaustive instantiate
         Node c = mkCondDefault( fmfmc, f );
         d_quant_models[f].addEntry( fmfmc, c, d_false );
@@ -673,12 +672,8 @@ bool FullModelChecker::doExhaustiveInstantiation( FirstOrderModel * fm, Node f, 
                 }
               }else{
                 //just add the instance
-                InstMatch m;
-                for( unsigned j=0; j<inst.size(); j++) {
-                  m.set( d_qe, f, j, inst[j] );
-                }
                 d_triedLemmas++;
-                if( d_qe->addInstantiation( f, m ) ){
+                if( d_qe->addInstantiation( f, inst ) ){
                   Trace("fmc-debug-inst") << "** Added instantiation." << std::endl;
                   d_addedLemmas++;
                 }else{
@@ -793,13 +788,9 @@ bool FullModelChecker::exhaustiveInstantiate(FirstOrderModelFmc * fm, Node f, No
       Trace("fmc-exh-debug") << ", index = " << ev_index << " / " << d_quant_models[f].d_value.size();
       Node ev = ev_index==-1 ? Node::null() : d_quant_models[f].d_value[ev_index];
       if (ev!=d_true) {
-        InstMatch m;
-        for( unsigned i=0; i<inst.size(); i++ ){
-          m.set( d_qe, f, i, inst[i] );
-        }
         Trace("fmc-exh-debug") << ", add!";
         //add as instantiation
-        if( d_qe->addInstantiation( f, m ) ){
+        if( d_qe->addInstantiation( f, inst ) ){
           Trace("fmc-exh-debug")  << " ...success.";
           addedLemmas++;
         }else{
@@ -958,8 +949,8 @@ void FullModelChecker::doVariableEquality( FirstOrderModelFmc * fm, Node f, Def 
   }else{
     TypeNode tn = eq[0].getType();
     if( tn.isSort() ){
-      int j = getVariableId(f, eq[0]);
-      int k = getVariableId(f, eq[1]);
+      int j = fm->getVariableId(f, eq[0]);
+      int k = fm->getVariableId(f, eq[1]);
       if( !fm->d_rep_set.hasType( tn ) ){
         getSomeDomainElement( fm, tn );  //to verify the type is initialized
       }
@@ -977,7 +968,7 @@ void FullModelChecker::doVariableEquality( FirstOrderModelFmc * fm, Node f, Def 
 }
 
 void FullModelChecker::doVariableRelation( FirstOrderModelFmc * fm, Node f, Def & d, Def & dc, Node v) {
-  int j = getVariableId(f, v);
+  int j = fm->getVariableId(f, v);
   for (unsigned i=0; i<dc.d_cond.size(); i++) {
     Node val = dc.d_value[i];
     if( val.isNull() ){
@@ -1074,7 +1065,7 @@ void FullModelChecker::doUninterpretedCompose2( FirstOrderModelFmc * fm, Node f,
     Trace("fmc-uf-process") << "Process " << v << std::endl;
     bool bind_var = false;
     if( !v.isNull() && v.getKind()==kind::BOUND_VARIABLE ){
-      int j = getVariableId(f, v);
+      int j = fm->getVariableId(f, v);
       Trace("fmc-uf-process") << v << " is variable #" << j << std::endl;
       if (!fm->isStar(cond[j+1]) && !fm->isInterval(cond[j+1])) {
         v = cond[j+1];
@@ -1084,7 +1075,7 @@ void FullModelChecker::doUninterpretedCompose2( FirstOrderModelFmc * fm, Node f,
     }
     if (bind_var) {
       Trace("fmc-uf-process") << "bind variable..." << std::endl;
-      int j = getVariableId(f, v);
+      int j = fm->getVariableId(f, v);
       if( fm->isStar(cond[j+1]) ){
         for (std::map<Node, EntryTrie>::iterator it = curr.d_child.begin(); it != curr.d_child.end(); ++it) {
           cond[j+1] = it->first;
@@ -1104,7 +1095,7 @@ void FullModelChecker::doUninterpretedCompose2( FirstOrderModelFmc * fm, Node f,
       }
     }else{
       if( !v.isNull() ){
-        if( options::fmfFmcInterval() && v.getType().isInteger() ){
+        if( options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL && v.getType().isInteger() ){
           for (std::map<Node, EntryTrie>::iterator it = curr.d_child.begin(); it != curr.d_child.end(); ++it) {
             if( fm->isInRange( v, it->first ) ){
               doUninterpretedCompose2(fm, f, entries, index+1, cond, val, it->second);
@@ -1166,7 +1157,7 @@ int FullModelChecker::isCompat( FirstOrderModelFmc * fm, std::vector< Node > & c
   Trace("fmc-debug3") << "isCompat " << c << std::endl;
   Assert(cond.size()==c.getNumChildren()+1);
   for (unsigned i=1; i<cond.size(); i++) {
-    if( options::fmfFmcInterval() && cond[i].getType().isInteger() ){
+    if( options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL && cond[i].getType().isInteger() ){
       Node iv = doIntervalMeet( fm, cond[i], c[i-1], false );
       if( iv.isNull() ){
         return 0;
@@ -1185,7 +1176,7 @@ bool FullModelChecker::doMeet( FirstOrderModelFmc * fm, std::vector< Node > & co
   Assert(cond.size()==c.getNumChildren()+1);
   for (unsigned i=1; i<cond.size(); i++) {
     if( cond[i]!=c[i-1] ) {
-      if( options::fmfFmcInterval() && cond[i].getType().isInteger() ){
+      if( options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL && cond[i].getType().isInteger() ){
         Node iv = doIntervalMeet( fm, cond[i], c[i-1] );
         if( !iv.isNull() ){
           cond[i] = iv;
@@ -1255,7 +1246,7 @@ Node FullModelChecker::mkCondDefault( FirstOrderModelFmc * fm, Node f) {
 }
 
 void FullModelChecker::mkCondDefaultVec( FirstOrderModelFmc * fm, Node f, std::vector< Node > & cond ) {
-  Trace("fmc-debug") << "Make default vec, intervals = " << options::fmfFmcInterval() << std::endl;
+  Trace("fmc-debug") << "Make default vec, intervals = " << (options::mbqiMode()==quantifiers::MBQI_FMC_INTERVAL) << std::endl;
   //get function symbol for f
   cond.push_back(d_quant_cond[f]);
   for (unsigned i=0; i<f[0].getNumChildren(); i++) {

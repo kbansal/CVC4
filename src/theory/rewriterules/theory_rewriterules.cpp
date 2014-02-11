@@ -129,18 +129,17 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        context::UserContext* u,
                                        OutputChannel& out,
                                        Valuation valuation,
-                                       const LogicInfo& logicInfo,
-                                       QuantifiersEngine* qe) :
-  Theory(THEORY_REWRITERULES, c, u, out, valuation, logicInfo, qe),
+                                       const LogicInfo& logicInfo) :
+  Theory(THEORY_REWRITERULES, c, u, out, valuation, logicInfo),
   d_rules(c), d_ruleinsts(c), d_guardeds(c), d_checkLevel(c,0),
   d_explanations(c), d_ruleinsts_to_add(), d_ppAssert_on(false)
-  {
+{
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
 }
 
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
-                                             InstMatch & im,
+                                             rrinst::InstMatch & im,
                                              bool delay){
   ++r->nb_matched;
   ++d_statistics.d_match_found;
@@ -215,7 +214,7 @@ void TheoryRewriteRules::check(Effort level) {
 
     /** Test the possible matching one by one */
     while(tr.getNextMatch()){
-      InstMatch im = tr.getInstMatch();
+      rrinst::InstMatch im = tr.getInstMatch();
       addMatchRuleTrigger(r, im, true);
     }
   }
@@ -541,7 +540,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
       ApplyMatcher * tr = r->trigger_for_body_match;
       Assert(tr != NULL);
       tr->resetInstantiationRound(getQuantifiersEngine());
-      InstMatch im;
+      rrinst::InstMatch im;
       TNode m = inst->substNode(*this,(*p).first, cache);
       Assert( m.getKind() == kind::APPLY_UF );
       ee->addTerm(m);

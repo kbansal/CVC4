@@ -124,7 +124,16 @@ bool QuantifierMacros::isMacroLiteral( Node n, bool pol ){
 
 void QuantifierMacros::getMacroCandidates( Node n, std::vector< Node >& candidates ){
   if( n.getKind()==APPLY_UF ){
-    candidates.push_back( n );
+    bool allBoundVar = true;
+    for( unsigned i=0; i<n.getNumChildren(); i++ ){
+      if( n[i].getKind()!=BOUND_VARIABLE ){
+        allBoundVar = false;
+        break;
+      }
+    }
+    if( allBoundVar ){
+      candidates.push_back( n );
+    }
   }else if( n.getKind()==PLUS ){
     for( size_t i=0; i<n.getNumChildren(); i++ ){
       getMacroCandidates( n[i], candidates );
@@ -233,7 +242,7 @@ bool QuantifierMacros::getSubstitution( std::vector< Node >& v_quant, std::map< 
 void QuantifierMacros::process( Node n, bool pol, std::vector< Node >& args, Node f ){
   if( n.getKind()==NOT ){
     process( n[0], !pol, args, f );
-  }else if( n.getKind()==AND || n.getKind()==OR || n.getKind()==IMPLIES ){
+  }else if( n.getKind()==AND || n.getKind()==OR ){
     //bool favorPol = (n.getKind()==AND)==pol;
     //conditional?
   }else if( n.getKind()==ITE ){

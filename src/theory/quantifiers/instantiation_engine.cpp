@@ -42,14 +42,13 @@ void InstantiationEngine::finishInit(){
     //  addInstStrategy( new InstStrategyCheckCESolved( this, d_quantEngine ) );
     //}
     //these are the instantiation strategies for basic E-matching
-    if( options::userPatternsQuant() ){
+    if( options::userPatternsQuant()!=USER_PAT_MODE_IGNORE ){
       d_isup = new InstStrategyUserPatterns( d_quantEngine );
       addInstStrategy( d_isup );
     }else{
       d_isup = NULL;
     }
-    int rlv = options::relevantTriggers() ? InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT : InstStrategyAutoGenTriggers::RELEVANCE_NONE;
-    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( d_quantEngine, Trigger::TS_ALL, rlv, 3 );
+    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( d_quantEngine, Trigger::TS_ALL, 3 );
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
     //addInstStrategy( new InstStrategyAddFailSplits( this, ie ) );
@@ -195,7 +194,7 @@ bool InstantiationEngine::needsCheck( Theory::Effort e ){
 }
 
 void InstantiationEngine::check( Theory::Effort e ){
-  if( d_performCheck ){
+  if( d_performCheck && !d_quantEngine->hasAddedLemma() ){
     Debug("inst-engine") << "IE: Check " << e << " " << d_ierCounter << std::endl;
     double clSet = 0;
     if( Trace.isOn("inst-engine") ){
@@ -250,8 +249,10 @@ void InstantiationEngine::check( Theory::Effort e ){
         Debug("quantifiers") << "  Active : " << n << ", no ce assigned." << std::endl;
       }
       Debug("quantifiers-relevance")  << "Quantifier : " << n << std::endl;
-      Debug("quantifiers-relevance")  << "   Relevance : " << d_quantEngine->getQuantifierRelevance()->getRelevance( n ) << std::endl;
-      Debug("quantifiers") << "   Relevance : " << d_quantEngine->getQuantifierRelevance()->getRelevance( n ) << std::endl;
+      if( options::relevantTriggers() ){
+        Debug("quantifiers-relevance")  << "   Relevance : " << d_quantEngine->getQuantifierRelevance()->getRelevance( n ) << std::endl;
+        Debug("quantifiers") << "   Relevance : " << d_quantEngine->getQuantifierRelevance()->getRelevance( n ) << std::endl;
+      }
       Trace("inst-engine-debug") << "Process : " << n << " " << d_quant_active[n] << std::endl;
     }
     if( quantActive ){

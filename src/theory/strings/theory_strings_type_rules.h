@@ -73,18 +73,134 @@ public:
     if( check ){
         TypeNode t = n[0].getType(check);
         if (!t.isString()) {
-          throw TypeCheckingExceptionPrivate(n, "expecting string terms in substr");
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in substr");
         }
 		t = n[1].getType(check);
         if (!t.isInteger()) {
-          throw TypeCheckingExceptionPrivate(n, "expecting start int terms in substr");
+          throw TypeCheckingExceptionPrivate(n, "expecting a start int term in substr");
         }
 		t = n[2].getType(check);
         if (!t.isInteger()) {
-          throw TypeCheckingExceptionPrivate(n, "expecting length int terms in substr");
+          throw TypeCheckingExceptionPrivate(n, "expecting a length int term in substr");
         }
     }
     return nodeManager->stringType();
+  }
+};
+
+class StringContainTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ){
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting an orginal string term in string contain");
+        }
+		t = n[1].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a target string term in string contain");
+        }
+    }
+    return nodeManager->booleanType();
+  }
+};
+
+class StringCharAtTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ){
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string char at 0");
+        }
+		t = n[1].getType(check);
+        if (!t.isInteger()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting an integer term in string char at 1");
+        }
+    }
+    return nodeManager->stringType();
+  }
+};
+
+class StringIndexOfTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ){
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string indexof 0");
+        }
+		t = n[1].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string indexof 1");
+        }
+		t = n[2].getType(check);
+        if (!t.isInteger()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting an integer term in string indexof 2");
+        }
+    }
+    return nodeManager->integerType();
+  }
+};
+
+class StringReplaceTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ){
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string replace 0");
+        }
+		t = n[1].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string replace 1");
+        }
+		t = n[2].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string replace 2");
+        }
+    }
+    return nodeManager->stringType();
+  }
+};
+
+class StringPrefixOfTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ) {
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string prefixof 0");
+        }
+		t = n[1].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string prefixof 1");
+        }
+    }
+    return nodeManager->booleanType();
+  }
+};
+
+class StringSuffixOfTypeRule {
+public:
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+      throw (TypeCheckingExceptionPrivate, AssertionException) {
+    if( check ) {
+        TypeNode t = n[0].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string suffixof 0");
+        }
+		t = n[1].getType(check);
+        if (!t.isString()) {
+          throw TypeCheckingExceptionPrivate(n, "expecting a string term in string suffixof 1");
+        }
+    }
+    return nodeManager->booleanType();
   }
 };
 

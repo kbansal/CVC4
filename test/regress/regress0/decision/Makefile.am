@@ -4,12 +4,12 @@
 end@mk_if@
 
 LOG_COMPILER = @srcdir@/../../run_regression
-AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)$(EXEEXT)
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @abs_top_builddir@/src/main/$(BINARY)$(EXEEXT)
 
 if AUTOMAKE_1_11
 # old-style (pre-automake 1.12) test harness
 TESTS_ENVIRONMENT = \
-	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(LOG_COMPILER) \
 	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
@@ -25,7 +25,6 @@ TESTS =	\
 	bitvec5.smt \
 	quant-Arrays_Q1-noinfer.smt2 \
 	quant-ex1.smt2 \
-	quant-ex1.disable_miniscope.smt2 \
 	uflia-xs-09-16-3-4-1-5.delta03.smt \
 	aufbv-fuzz01.smt \
 	bug347.smt \

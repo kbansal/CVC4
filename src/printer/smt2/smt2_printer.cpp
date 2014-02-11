@@ -124,6 +124,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       case BOOLEAN_TYPE: out << "Bool"; break;
       case REAL_TYPE: out << "Real"; break;
       case INTEGER_TYPE: out << "Int"; break;
+      case STRING_TYPE: out << "String"; break;
       default:
         // fall back on whatever operator<< does on underlying type; we
         // might luck out and be SMT-LIB v2 compliant
@@ -276,6 +277,26 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::SELECT:
   case kind::STORE:
   case kind::ARRAY_TYPE: out << smtKindString(k) << " "; break;
+
+  // string theory
+  case kind::STRING_CONCAT: out << "str.++ "; break;
+  case kind::STRING_IN_REGEXP: out << "str.in.re "; break;
+  case kind::STRING_LENGTH: out << "str.len "; break;
+  case kind::STRING_SUBSTR: out << "str.substr "; break;
+  case kind::STRING_CHARAT: out << "str.at "; break;
+  case kind::STRING_STRCTN: out << "str.contain "; break;
+  case kind::STRING_STRIDOF: out << "str.indexof "; break;
+  case kind::STRING_STRREPL: out << "str.replace "; break;
+  case kind::STRING_PREFIX: out << "str.prefixof "; break;
+  case kind::STRING_SUFFIX: out << "str.suffixof "; break;
+  case kind::STRING_TO_REGEXP: out << "str.to.re "; break;
+  case kind::REGEXP_CONCAT: out << "re.++ "; break;
+  case kind::REGEXP_OR: out << "re.or "; break;
+  case kind::REGEXP_INTER: out << "re.itr "; break;
+  case kind::REGEXP_STAR: out << "re.* "; break;
+  case kind::REGEXP_PLUS: out << "re.+ "; break;
+  case kind::REGEXP_OPT: out << "re.opt "; break;
+  case kind::REGEXP_RANGE: out << "re.range "; break;
 
     // bv theory
   case kind::BITVECTOR_CONCAT: out << "concat "; break;
@@ -598,6 +619,7 @@ void Smt2Printer::toStream(std::ostream& out, const Command* c,
      tryToStream<GetModelCommand>(out, c) ||
      tryToStream<GetAssignmentCommand>(out, c) ||
      tryToStream<GetAssertionsCommand>(out, c) ||
+     tryToStream<GetProofCommand>(out, c) ||
      tryToStream<SetBenchmarkStatusCommand>(out, c) ||
      tryToStream<SetBenchmarkLogicCommand>(out, c) ||
      tryToStream<SetInfoCommand>(out, c) ||
@@ -879,6 +901,10 @@ static void toStream(std::ostream& out, const GetAssertionsCommand* c) throw() {
   out << "(get-assertions)";
 }
 
+static void toStream(std::ostream& out, const GetProofCommand* c) throw() {
+  out << "(get-proof)";
+}
+
 static void toStream(std::ostream& out, const SetBenchmarkStatusCommand* c) throw() {
   out << "(set-info :status " << c->getStatus() << ")";
 }
@@ -981,9 +1007,10 @@ static void toStream(std::ostream& out, const CommandUnsupported* s) throw() {
 static void toStream(std::ostream& out, const CommandFailure* s) throw() {
   string message = s->getMessage();
   // escape all double-quotes
-  size_t pos;
-  while((pos = message.find('"')) != string::npos) {
+  size_t pos = 0;
+  while((pos = message.find('"', pos)) != string::npos) {
     message = message.replace(pos, 1, "\\\"");
+    pos += 2;
   }
   out << "(error \"" << message << "\")" << endl;
 }

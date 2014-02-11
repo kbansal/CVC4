@@ -52,7 +52,7 @@ public:
   /* Call during quantifier engine's check */
   virtual void check( Theory::Effort e ) = 0;
   /* Called for new quantifiers */
-  virtual void registerQuantifier( Node n ) = 0;
+  virtual void registerQuantifier( Node q ) = 0;
   virtual void assertNode( Node n ) = 0;
   virtual void propagate( Theory::Effort level ){}
   virtual Node getNextDecisionRequest() { return TNode::null(); }
@@ -66,7 +66,9 @@ namespace quantifiers {
   class InstantiationEngine;
   class ModelEngine;
   class BoundedIntegers;
+  class QuantConflictFind;
   class RewriteEngine;
+  class RelevantDomain;
 }/* CVC4::theory::quantifiers */
 
 namespace inst {
@@ -94,7 +96,9 @@ private:
   /** equality query class */
   EqualityQueryQuantifiersEngine* d_eq_query;
   /** for computing relevance of quantifiers */
-  QuantRelevance d_quant_rel;
+  QuantRelevance * d_quant_rel;
+  /** relevant domain */
+  quantifiers::RelevantDomain* d_rel_dom;
   /** phase requirements for each quantifier for each instantiation literal */
   std::map< Node, QuantPhaseReq* > d_phase_reqs;
   /** efficient e-matcher */
@@ -105,6 +109,8 @@ private:
   quantifiers::ModelEngine* d_model_engine;
   /** bounded integers utility */
   quantifiers::BoundedIntegers * d_bint;
+  /** Conflict find mechanism for quantifiers */
+  quantifiers::QuantConflictFind* d_qcf;
   /** rewrite rules utility */
   quantifiers::RewriteEngine * d_rr_engine;
 private:
@@ -118,7 +124,8 @@ private:
   /** has added lemma this round */
   bool d_hasAddedLemma;
   /** list of all instantiations produced for each quantifier */
-  std::map< Node, inst::CDInstMatchTrie* > d_inst_match_trie;
+  std::map< Node, inst::InstMatchTrie > d_inst_match_trie;
+  std::map< Node, inst::CDInstMatchTrie* > d_c_inst_match_trie;
   /** term database */
   quantifiers::TermDb* d_term_db;
   /** all triggers will be stored in this trie */
@@ -155,8 +162,10 @@ public:
   OutputChannel& getOutputChannel();
   /** get default valuation for the quantifiers engine */
   Valuation& getValuation();
+  /** get relevant domain */
+  quantifiers::RelevantDomain* getRelevantDomain() { return d_rel_dom; }
   /** get quantifier relevance */
-  QuantRelevance* getQuantifierRelevance() { return &d_quant_rel; }
+  QuantRelevance* getQuantifierRelevance() { return d_quant_rel; }
   /** get phase requirement information */
   QuantPhaseReq* getPhaseRequirements( Node f ) { return d_phase_reqs.find( f )==d_phase_reqs.end() ? NULL : d_phase_reqs[f]; }
   /** get phase requirement terms */
@@ -165,6 +174,8 @@ public:
   EfficientEMatcher* getEfficientEMatcher() { return d_eem; }
   /** get bounded integers utility */
   quantifiers::BoundedIntegers * getBoundedIntegers() { return d_bint; }
+  /** Conflict find mechanism for quantifiers */
+  quantifiers::QuantConflictFind* getConflictFind() { return d_qcf; }
 public:
   /** initialize */
   void finishInit();
@@ -194,12 +205,16 @@ public:
   Node getInstantiation( Node f, std::vector< Node >& vars, std::vector< Node >& terms );
   /** get instantiation */
   Node getInstantiation( Node f, InstMatch& m );
+  /** get instantiation */
+  Node getInstantiation( Node f, std::vector< Node >& terms );
   /** exist instantiation ? */
   bool existsInstantiation( Node f, InstMatch& m, bool modEq = true, bool modInst = false );
   /** add lemma lem */
   bool addLemma( Node lem );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch& m, bool modEq = true, bool modInst = false, bool mkRep = true );
+  bool addInstantiation( Node f, InstMatch& m, bool mkRep = true, bool modEq = false, bool modInst = false );
+  /** add instantiation */
+  bool addInstantiation( Node f, std::vector< Node >& terms, bool mkRep = true, bool modEq = false, bool modInst = false );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
@@ -207,7 +222,7 @@ public:
   /** has added lemma */
   bool hasAddedLemma() { return !d_lemmas_waiting.empty() || d_hasAddedLemma; }
   /** flush lemmas */
-  void flushLemmas( OutputChannel* out );
+  void flushLemmas( OutputChannel* out = NULL );
   /** get number of waiting lemmas */
   int getNumLemmasWaiting() { return (int)d_lemmas_waiting.size(); }
 public:

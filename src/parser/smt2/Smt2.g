@@ -32,7 +32,7 @@ options {
 @header {
 /**
  ** This file is part of CVC4.
- ** Copyright (c) 2009-2013  New York University and The University of Iowa
+ ** Copyright (c) 2009-2014  New York University and The University of Iowa
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **/
@@ -336,8 +336,10 @@ command returns [CVC4::Command* cmd = NULL]
     }
   | /* value query */
     GET_VALUE_TOK { PARSER_STATE->checkThatLogicIsSet(); }
-    LPAREN_TOK termList[terms,expr] RPAREN_TOK
-    { $cmd = new GetValueCommand(terms); }
+    ( LPAREN_TOK termList[terms,expr] RPAREN_TOK
+      { $cmd = new GetValueCommand(terms); }
+    | ~LPAREN_TOK
+      { PARSER_STATE->parseError("The get-value command expects a list of terms.  Perhaps you forgot a pair of parentheses?"); } )
   | /* get-assignment */
     GET_ASSIGNMENT_TOK { PARSER_STATE->checkThatLogicIsSet(); }
     { cmd = new GetAssignmentCommand(); }
@@ -1180,6 +1182,26 @@ str[std::string& s]
     { s = AntlrInput::tokenText($STRING_LITERAL);
       /* strip off the quotes */
       s = s.substr(1, s.size() - 2);
+      /* handle SMT-LIB standard escapes '\\' and '\"' */
+      char* p_orig = strdup(s.c_str());
+      char *p = p_orig, *q = p_orig;
+      while(*q != '\0') {
+        if(*q == '\\') {
+          ++q;
+          if(*q == '\\' || *q == '"') {
+            *p++ = *q++;
+          } else {
+            assert(*q != '\0');
+            *p++ = '\\';
+            *p++ = *q++;
+          }
+        } else {
+          *p++ = *q++;
+        }
+      }
+      *p = '\0';
+      s = p_orig;
+      free(p_orig);
     }
   ;
 
@@ -1258,6 +1280,12 @@ builtinOp[CVC4::Kind& kind]
   | STRCON_TOK     { $kind = CVC4::kind::STRING_CONCAT; }
   | STRLEN_TOK     { $kind = CVC4::kind::STRING_LENGTH; }
   | STRSUB_TOK     { $kind = CVC4::kind::STRING_SUBSTR; }
+  | STRCTN_TOK     { $kind = CVC4::kind::STRING_STRCTN; }
+  | STRCAT_TOK     { $kind = CVC4::kind::STRING_CHARAT; }
+  | STRIDOF_TOK    { $kind = CVC4::kind::STRING_STRIDOF; }
+  | STRREPL_TOK    { $kind = CVC4::kind::STRING_STRREPL; }
+  | STRPREF_TOK    { $kind = CVC4::kind::STRING_PREFIX; }
+  | STRSUFF_TOK    { $kind = CVC4::kind::STRING_SUFFIX; }
   | STRINRE_TOK    { $kind = CVC4::kind::STRING_IN_REGEXP; }
   | STRTORE_TOK    { $kind = CVC4::kind::STRING_TO_REGEXP; }
   | RECON_TOK      { $kind = CVC4::kind::REGEXP_CONCAT; }
@@ -1642,7 +1670,13 @@ INT2BV_TOK : 'int2bv';
 //STRCST_TOK : 'str.cst';
 STRCON_TOK : 'str.++';
 STRLEN_TOK : 'str.len';
-STRSUB_TOK : 'str.sub' ;
+STRSUB_TOK : 'str.substr' ;
+STRCTN_TOK : 'str.contain' ;
+STRCAT_TOK : 'str.at' ;
+STRIDOF_TOK : 'str.indexof' ;
+STRREPL_TOK : 'str.replace' ;
+STRPREF_TOK : 'str.prefixof' ;
+STRSUFF_TOK : 'str.suffixof' ;
 STRINRE_TOK : 'str.in.re';
 STRTORE_TOK : 'str.to.re';
 RECON_TOK : 're.++';
@@ -1751,7 +1785,6 @@ BINARY_LITERAL
   : '#b' ('0' | '1')+
   ;
 
-
 /**
  * Matches a double quoted string literal.  Escaping is supported, and
  * escape character '\' has to be escaped.
@@ -1760,7 +1793,7 @@ BINARY_LITERAL
  * will be part of the token text.  Use the str[] parser rule instead.
  */
 STRING_LITERAL
-  : '"' (ESCAPE | ~('"'|'\\'))* '"'
+  : '"' ('\\' . | ~('\\' | '"'))* '"'
   ;
 
 /**
@@ -1801,8 +1834,3 @@ fragment SYMBOL_CHAR_NOUNDERSCORE_NOATTRIBUTE
 fragment SYMBOL_CHAR
   : SYMBOL_CHAR_NOUNDERSCORE_NOATTRIBUTE | '_' | '!'
   ;
-
-/**
- * Matches an allowed escaped character.
- */
-fragment ESCAPE : '\\' ('"' | '\\');

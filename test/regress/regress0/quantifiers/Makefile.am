@@ -4,12 +4,12 @@
 end@mk_if@
 
 LOG_COMPILER = @srcdir@/../../run_regression
-AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @top_builddir@/src/main/$(BINARY)$(EXEEXT)
+AM_LOG_FLAGS = $(RUN_REGRESSION_ARGS) @abs_top_builddir@/src/main/$(BINARY)$(EXEEXT)
 
 if AUTOMAKE_1_11
 # old-style (pre-automake 1.12) test harness
 TESTS_ENVIRONMENT = \
-	$(TESTS_ENVIRONMENT) $(LOG_COMPILER) \
+	$(LOG_COMPILER) \
 	$(AM_LOG_FLAGS) $(LOG_FLAGS)
 endif
 
@@ -24,15 +24,12 @@ TESTS =	\
 	bug291.smt2 \
 	ex3.smt2 \
 	Arrays_Q1-noinfer.smt2 \
-	array-unsat-simp3.smt2 \
 	bignum_quant.smt2 \
 	bug269.smt2 \
 	burns13.smt2 \
 	burns4.smt2 \
-	ex1.smt2 \
 	ex3.smt2 \
 	ex6.smt2 \
-	ex7.smt2 \
 	opisavailable-12.smt2 \
 	ricart-agrawala6.smt2 \
 	set8.smt2 \
@@ -60,6 +57,7 @@ TESTS =	\
 #		javafe.ast.WhileStmt.447.smt2 \
 #		javafe.tc.CheckCompilationUnit.001.smt2 \
 #		javafe.tc.FlowInsensitiveChecks.682.smt2 \
+#		array-unsat-simp3.smt2 \
 #
 
 EXTRA_DIST = $(TESTS) \
