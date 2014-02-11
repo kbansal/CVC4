@@ -6,6 +6,7 @@
 (assert (not (in x a)))
 (assert (in x (union a b)))
 (check-sat)
+(get-model)
 (assert (not (in x b)))
 (check-sat)
 (exit)

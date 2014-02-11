@@ -11,7 +11,7 @@
 (assert (= c (union a b) ))
 (assert (not (= c (intersection a b) )))
 (assert (= c (setminus a b) ))
-(assert (subset a b))
+(assert (subseteq a b))
 (assert (in e c))
 (assert (in e a))
 (assert (in e (intersection a b)))

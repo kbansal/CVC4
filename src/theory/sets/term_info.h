@@ -1,3 +1,22 @@
+/*********************                                                        */
+/*! \file term_info.h
+ ** \verbatim
+ ** Original author: Kshitij Bansal
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2013-2014  New York University and The University of Iowa
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Term info.
+ **
+ ** Term info.
+ **/
+
+#include "cvc4_private.h"
+
+#pragma once
 
 namespace CVC4 {
 namespace theory {
@@ -9,22 +28,13 @@ typedef context::CDHashSet<Node, NodeHashFunction> CDNodeSet;
 typedef context::CDHashSet<Node, NodeHashFunction> CDNodeSet;
 
 class TheorySetsTermInfo {
-  TNode d_term;                 // actually unnecessary since we
-                                // maintain the invariant that
-                                // inThisEqClass' first element will
-                                // be d_term
 public:
-
   CDTNodeList* elementsInThisSet;
   CDTNodeList* elementsNotInThisSet;
   CDTNodeList* parents;
 
-  TheorySetsTermInfo(TNode t, context::Context* c):
-    d_term(t)
+  TheorySetsTermInfo(context::Context* c)
   {
-    Debug("sets-terminfo") << "[sets-terminfo] Creating info for " << d_term
-                           << std::endl;
-
     elementsInThisSet = new(true)CDTNodeList(c);
     elementsNotInThisSet = new(true)CDTNodeList(c);
     parents = new(true)CDTNodeList(c);
@@ -36,9 +46,6 @@ public:
   }
 
   ~TheorySetsTermInfo() {
-    Debug("sets-terminfo") << "[sets-terminfo] Destroying info for " << d_term
-                           << std::endl;
-
     elementsInThisSet -> deleteSelf();
     elementsNotInThisSet -> deleteSelf();
     parents -> deleteSelf();

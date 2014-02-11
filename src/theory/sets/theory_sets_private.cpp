@@ -31,6 +31,9 @@ namespace sets {
 
 const char* element_of_str = " \u2208 ";
 
+/**************************** TheorySetsPrivate *****************************/
+/**************************** TheorySetsPrivate *****************************/
+/**************************** TheorySetsPrivate *****************************/
 
 void TheorySetsPrivate::check(Theory::Effort level) {
 
@@ -647,6 +650,13 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
   }
 }
 
+
+
+/**************************** eq::NotifyClass *****************************/
+/**************************** eq::NotifyClass *****************************/
+/**************************** eq::NotifyClass *****************************/
+
+
 bool TheorySetsPrivate::NotifyClass::eqNotifyTriggerEquality(TNode equality, bool value)
 {
   Debug("sets-eq") << "[sets-eq] eqNotifyTriggerEquality: equality = " << equality << " value = " << value << std::endl;
@@ -704,9 +714,9 @@ void TheorySetsPrivate::NotifyClass::eqNotifyDisequal(TNode t1, TNode t2, TNode 
 }
 
 
-
-
-/*** Term info manager implementation */
+/**************************** TermInfoManager *****************************/
+/**************************** TermInfoManager *****************************/
+/**************************** TermInfoManager *****************************/
 
 void TheorySetsPrivate::TermInfoManager::mergeLists
 (CDTNodeList* la, const CDTNodeList* lb) const {
@@ -762,7 +772,7 @@ void TheorySetsPrivate::TermInfoManager::addTerm(TNode n) {
 
   if(!d_terms.contains(n)) {
     d_terms.insert(n);
-    d_info[n] = new TheorySetsTermInfo(n, d_context);
+    d_info[n] = new TheorySetsTermInfo(d_context);
   }
 
   if(n.getKind() == kind::UNION ||
