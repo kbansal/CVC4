@@ -1,4 +1,5 @@
 (set-logic QF_ALL_SUPPORTED)
+(set-info :status sat)
 
 ; Observed behavior
 ;

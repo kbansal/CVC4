@@ -1,4 +1,5 @@
 (set-logic ALL_SUPPORTED)
+(set-info :status unsat)
 
 (declare-fun S () (Set Int))
 (declare-fun x () Int)

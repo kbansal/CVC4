@@ -1,3 +1,8 @@
+; COMMAND-LINE: --incremental
+; EXPECT: unsat
+; EXPECT: unsat
+; EXPECT: unsat
+; EXPECT: unsat
 (set-logic ALL_SUPPORTED)
 (define-sort SetInt () (Set Int))
 

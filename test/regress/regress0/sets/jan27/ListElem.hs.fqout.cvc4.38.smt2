@@ -1,4 +1,5 @@
 (set-logic QF_ALL_SUPPORTED)
+(set-info :status unsat)
 
 ; What was the bug?
 ; 

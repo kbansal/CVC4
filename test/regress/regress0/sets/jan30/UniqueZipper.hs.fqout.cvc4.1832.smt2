@@ -1,4 +1,5 @@
 (set-logic QF_ALL_SUPPORTED)
+(set-info :status unsat)
 (define-sort Elt () Int)
 (define-sort mySet () (Set Elt ))
 (define-fun smt_set_emp () mySet (as emptyset mySet))
@@ -224,4 +225,3 @@
 (assert (and (>= (z3f69 z3v113) 0) (>= (z3f69 z3v114) 0) (= (z3f72 z3v114) smt_set_emp) (= (z3f70 z3v114) smt_set_emp) (= (z3f69 z3v114) 0) (= (z3f76 z3v114) true) (>= (z3f69 z3v115) 0) (= (z3f72 z3v115) (ite (smt_set_mem z3v116 (z3f70 z3v113)) (smt_set_cup (smt_set_add smt_set_emp z3v116) (z3f72 z3v113)) (z3f72 z3v113))) (= (z3f70 z3v115) (smt_set_cup (smt_set_add smt_set_emp z3v116) (z3f70 z3v113))) (= (z3f69 z3v115) (+ 1 (z3f69 z3v113))) (= (z3f76 z3v115) false) (= z3v115 (z3f77 z3v116 z3v113)) (>= (z3f69 z3v115) 0) (= z3v115 z3v117) (>= (z3f69 z3v115) 0) (= (z3f72 z3v115) smt_set_emp) (>= (z3f69 z3v117) 0) (= (z3f72 z3v117) smt_set_emp) (z3f79 z3v66) (= (z3f81 z3v80) z3v80) (= (z3f81 z3v82) z3v82) (not (z3f79 z3v67)) (= (z3f81 z3v83) z3v83)))
 (assert (not (and (= (z3f72 z3v342) smt_set_emp) (not (smt_set_mem z3v116 (z3f70 z3v342))))))
 (check-sat)
-(get-model)

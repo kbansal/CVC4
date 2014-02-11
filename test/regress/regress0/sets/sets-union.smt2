@@ -1,3 +1,6 @@
+; COMMAND-LINE: --incremental
+; EXPECT: sat
+; EXPECT: unsat
 (set-logic ALL_SUPPORTED)
 (define-sort SetInt () (Set Int))
 (declare-fun a () (Set Int))
@@ -6,7 +9,7 @@
 (assert (not (in x a)))
 (assert (in x (union a b)))
 (check-sat)
-(get-model)
+;(get-model)
 (assert (not (in x b)))
 (check-sat)
 (exit)

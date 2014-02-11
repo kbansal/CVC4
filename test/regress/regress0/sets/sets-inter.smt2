@@ -1,4 +1,5 @@
 (set-logic ALL_SUPPORTED)
+(set-info :status unsat)
 (define-sort SetInt () (Set Int))
 (declare-fun a () (Set Int))
 (declare-fun b () (Set Int))

@@ -1,3 +1,7 @@
+; COMMAND-LINE: --incremental
+; EXPECT: unsat
+; EXPECT: sat
+
 ; x not in A U B => x not in A
 (set-logic ALL_SUPPORTED)
 (define-sort SetInt () (Set Int))

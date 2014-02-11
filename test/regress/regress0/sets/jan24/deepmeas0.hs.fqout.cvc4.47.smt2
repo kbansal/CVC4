@@ -1,4 +1,5 @@
 (set-logic QF_ALL_SUPPORTED)
+(set-info :status unsat)
 (define-sort Elt () Int)
 (define-sort mySet () (Set Elt ))
 (define-fun smt_set_emp () mySet (as emptyset mySet))
