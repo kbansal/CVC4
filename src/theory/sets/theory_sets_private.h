@@ -97,7 +97,7 @@ private:
   /** Proagate out to output channel */
   bool propagate(TNode);
 
-  /** */
+  /** generate and send out conflict node */
   void conflict(TNode, TNode);
 
   class TermInfoManager {
@@ -116,7 +116,7 @@ private:
                     eq::EqualityEngine*);
     ~TermInfoManager();
     void notifyMembership(TNode fact);
-    CDTNodeList* getParents(TNode x);
+    const CDTNodeList* getParents(TNode x);
     void addTerm(TNode n);
     void mergeTerms(TNode a, TNode b);
   };
@@ -135,7 +135,6 @@ private:
   void assertMemebership(TNode fact, TNode reason, bool learnt);
 
   /** Propagation / learning and helper functions. */
-
   context::CDQueue< std::pair<Node, Node> > d_propagationQueue;
   context::CDQueue< std::pair<TNode, TNode> > d_settermPropagationQueue;
 
@@ -162,7 +161,6 @@ private:
   void addToPending(Node n);
   bool isComplete();
   Node getLemma();
-
 };/* class TheorySetsPrivate */
 
 }/* CVC4::theory::sets namespace */

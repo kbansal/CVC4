@@ -23,7 +23,6 @@
 #include "expr/kind.h"
 #include "theory/logic_info.h"
 #include "util/cvc4_assert.h"
-#include "theory/sets/options.h"
 
 using namespace std;
 using namespace CVC4::theory;

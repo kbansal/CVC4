@@ -14,32 +14,22 @@ class TheorySetsTermInfo {
                                 // inThisEqClass' first element will
                                 // be d_term
 public:
-  CDTNodeList* inThisEqClass;
+
   CDTNodeList* elementsInThisSet;
   CDTNodeList* elementsNotInThisSet;
-  CDTNodeList* setsThisElementIsIn;
-  CDTNodeList* setsThisElementIsNotIn;
   CDTNodeList* parents;
+
   TheorySetsTermInfo(TNode t, context::Context* c):
     d_term(t)
   {
     Debug("sets-terminfo") << "[sets-terminfo] Creating info for " << d_term
                            << std::endl;
 
-    inThisEqClass = new(true)CDTNodeList(c);
     elementsInThisSet = new(true)CDTNodeList(c);
     elementsNotInThisSet = new(true)CDTNodeList(c);
-    setsThisElementIsIn = new(true)CDTNodeList(c);
-    setsThisElementIsNotIn = new(true)CDTNodeList(c);
     parents = new(true)CDTNodeList(c);
-
-    inThisEqClass->push_back(t);
   }
 
-  void addToSetList(TNode n, bool polarity) {
-    if(polarity) setsThisElementIsIn -> push_back(n);
-    else setsThisElementIsNotIn -> push_back(n);
-  }
   void addToElementList(TNode n, bool polarity) {
     if(polarity) elementsInThisSet -> push_back(n);
     else elementsNotInThisSet -> push_back(n);
@@ -49,11 +39,8 @@ public:
     Debug("sets-terminfo") << "[sets-terminfo] Destroying info for " << d_term
                            << std::endl;
 
-    inThisEqClass -> deleteSelf();
     elementsInThisSet -> deleteSelf();
     elementsNotInThisSet -> deleteSelf();
-    setsThisElementIsIn -> deleteSelf();
-    setsThisElementIsNotIn -> deleteSelf();
     parents -> deleteSelf();
   }
 };
