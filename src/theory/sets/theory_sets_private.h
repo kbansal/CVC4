@@ -43,11 +43,7 @@ public:
    */
   TheorySetsPrivate(TheorySets& external,
                     context::Context* c,
-                    context::UserContext* u,
-                    OutputChannel& out,
-                    Valuation valuation,
-                    const LogicInfo& logicInfo,
-                    QuantifiersEngine* qe);
+                    context::UserContext* u);
 
   ~TheorySetsPrivate();
 

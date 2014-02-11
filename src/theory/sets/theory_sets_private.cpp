@@ -528,11 +528,7 @@ Node TheorySetsPrivate::getLemma() {
 
 TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
                                      context::Context* c,
-                                     context::UserContext* u,
-                                     OutputChannel& out,
-                                     Valuation valuation,
-                                     const LogicInfo& logicInfo,
-                                     QuantifiersEngine* qe) :
+                                     context::UserContext* u):
   d_external(external),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::sets::TheorySetsPrivate"),

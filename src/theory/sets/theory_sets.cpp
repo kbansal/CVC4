@@ -27,7 +27,7 @@ TheorySets::TheorySets(context::Context* c,
                        Valuation valuation,
                        const LogicInfo& logicInfo) :
   Theory(THEORY_SETS, c, u, out, valuation, logicInfo),
-  d_internal(new TheorySetsPrivate(*this, c,u,out,valuation,logicInfo,NULL)) {
+  d_internal(new TheorySetsPrivate(*this, c, u)) {
 }
 
 TheorySets::~TheorySets() {
