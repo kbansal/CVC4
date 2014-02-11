@@ -352,7 +352,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::IN:
   case kind::SET_TYPE:
   case kind::SET_SINGLETON: out << smtKindString(k) << " "; break;
- 
+
    // datatypes
   case kind::APPLY_TYPE_ASCRIPTION: {
       out << "as ";
