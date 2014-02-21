@@ -76,6 +76,7 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     Assert(d_equalityEngine.consistent());
   }
 
+  return;
   Debug("sets") << "[sets]  is complete = " << isComplete() << std::endl;
 
   if( (Theory::EFFORT_FULL || options::setsEagerLemmas() ) && !isComplete()) {
