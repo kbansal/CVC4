@@ -323,27 +323,21 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
     } else if(node.getKind() == kind::STRING_LENGTH) {
         if(node[0].isConst()) {
             retNode = NodeManager::currentNM()->mkConst( ::CVC4::Rational( node[0].getConst<String>().size() ) );
-        } else if(node[0].getKind() == kind::STRING_CHARAT) {
-            retNode = NodeManager::currentNM()->mkConst( ::CVC4::Rational( 1 ) );
-		} else if(node[0].getKind() == kind::STRING_SUBSTR) {
+        } /*else if(node[0].getKind() == kind::STRING_SUBSTR_TOTAL) {
             retNode = node[0][2];
-        } else if(node[0].getKind() == kind::STRING_CONCAT) {
+        }*/ else if(node[0].getKind() == kind::STRING_CONCAT) {
             Node tmpNode = rewriteConcatString(node[0]);
             if(tmpNode.isConst()) {
                 retNode = NodeManager::currentNM()->mkConst( ::CVC4::Rational( tmpNode.getConst<String>().size() ) );
-            } else if(tmpNode.getKind() == kind::STRING_CHARAT) {
-				retNode = NodeManager::currentNM()->mkConst( ::CVC4::Rational( 1 ) );
-            } else if(tmpNode.getKind() == kind::STRING_SUBSTR) {
+            } /*else if(tmpNode.getKind() == kind::STRING_SUBSTR_TOTAL) {
 				retNode = tmpNode[2];
-            } else {
+            }*/ else {
                 // it has to be string concat
                 std::vector<Node> node_vec;
                 for(unsigned int i=0; i<tmpNode.getNumChildren(); ++i) {
                     if(tmpNode[i].isConst()) {
                         node_vec.push_back( NodeManager::currentNM()->mkConst( ::CVC4::Rational( tmpNode[i].getConst<String>().size() ) ) );
-					} else if(tmpNode[i].getKind() == kind::STRING_CHARAT) {
-                        node_vec.push_back( NodeManager::currentNM()->mkConst( ::CVC4::Rational( 1 ) ) );
-					} else if(tmpNode[i].getKind() == kind::STRING_SUBSTR) {
+					} else if(tmpNode[i].getKind() == kind::STRING_SUBSTR_TOTAL) {
                         node_vec.push_back( tmpNode[i][2] );
                     } else {
                         node_vec.push_back( NodeManager::currentNM()->mkNode(kind::STRING_LENGTH, tmpNode[i]) );
@@ -352,15 +346,17 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
                 retNode = NodeManager::currentNM()->mkNode(kind::PLUS, node_vec);
             }
         }
-    } else if(node.getKind() == kind::STRING_SUBSTR) {
+    } else if(node.getKind() == kind::STRING_SUBSTR_TOTAL) {
 		Node zero = NodeManager::currentNM()->mkConst( ::CVC4::Rational(0) );
 		if(node[2] == zero) {
 			retNode = NodeManager::currentNM()->mkConst( ::CVC4::String("") );
 		} else if( node[0].isConst() && node[1].isConst() && node[2].isConst() ) {
 			int i = node[1].getConst<Rational>().getNumerator().toUnsignedInt();
 			int j = node[2].getConst<Rational>().getNumerator().toUnsignedInt();
-			if( node[0].getConst<String>().size() >= (unsigned) (i + j) ) {
+			if( i>=0 && j>=0 && node[0].getConst<String>().size() >= (unsigned) (i + j) ) {
 				retNode = NodeManager::currentNM()->mkConst( node[0].getConst<String>().substr(i, j) );
+			} else {
+				retNode = NodeManager::currentNM()->mkConst( ::CVC4::String("") );
 			}
 		}
 	} else if(node.getKind() == kind::STRING_STRCTN) {
@@ -373,13 +369,6 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
 				retNode = NodeManager::currentNM()->mkConst( true );
 			} else {
 				retNode = NodeManager::currentNM()->mkConst( false );
-			}
-		}
-	} else if(node.getKind() == kind::STRING_CHARAT) {
-		if( node[0].isConst() && node[1].isConst() ) {
-			int i = node[1].getConst<Rational>().getNumerator().toUnsignedInt();
-			if( node[0].getConst<String>().size() > (unsigned) i ) {
-				retNode = NodeManager::currentNM()->mkConst( node[0].getConst<String>().substr(i, 1) );
 			}
 		}
 	} else if(node.getKind() == kind::STRING_STRIDOF) {
@@ -416,6 +405,8 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
 					retNode = node[0];
 				}
 			}
+		} else {
+			retNode = node[0];
 		}
 	} else if(node.getKind() == kind::STRING_PREFIX) {
 		if(node[0].isConst() && node[1].isConst()) {
@@ -432,7 +423,7 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
 			Node lent = NodeManager::currentNM()->mkNode(kind::STRING_LENGTH, node[1]);
 			retNode = NodeManager::currentNM()->mkNode(kind::AND,
 						NodeManager::currentNM()->mkNode(kind::GEQ, lent, lens),
-						node[0].eqNode(NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR, node[1],
+						node[0].eqNode(NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR_TOTAL, node[1],
 										NodeManager::currentNM()->mkConst( ::CVC4::Rational(0) ), lens)));
 		}
 	} else if(node.getKind() == kind::STRING_SUFFIX) {
@@ -450,8 +441,38 @@ RewriteResponse TheoryStringsRewriter::postRewrite(TNode node) {
 			Node lent = NodeManager::currentNM()->mkNode(kind::STRING_LENGTH, node[1]);
 			retNode = NodeManager::currentNM()->mkNode(kind::AND,
 						NodeManager::currentNM()->mkNode(kind::GEQ, lent, lens),
-						node[0].eqNode(NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR, node[1],
+						node[0].eqNode(NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR_TOTAL, node[1],
 										NodeManager::currentNM()->mkNode(kind::MINUS, lent, lens), lens)));
+		}
+	} else if(node.getKind() == kind::STRING_ITOS) {
+		if(node[0].isConst()) {
+			std::string stmp = node[0].getConst<Rational>().getNumerator().toString();
+			//std::string stmp = static_cast<std::ostringstream*>( &(std::ostringstream() << node[0]) )->str();
+			if(stmp[0] == '-') {
+				retNode = NodeManager::currentNM()->mkConst( ::CVC4::String("") );
+			} else {
+				retNode = NodeManager::currentNM()->mkConst( ::CVC4::String(stmp) );
+			}
+		}
+	} else if(node.getKind() == kind::STRING_STOI) {
+		if(node[0].isConst()) {
+			CVC4::String s = node[0].getConst<String>();
+			if(s.isNumber()) {
+				std::string stmp = s.toString();
+				retNode = NodeManager::currentNM()->mkConst(::CVC4::Rational(stmp.c_str()));
+			} else {
+				retNode = NodeManager::currentNM()->mkConst(::CVC4::Rational(-1));
+			}
+		} else if(node[0].getKind() == kind::STRING_CONCAT) {
+			for(unsigned i=0; i<node[0].getNumChildren(); ++i) {
+				if(node[0][i].isConst()) {
+					CVC4::String t = node[0][i].getConst<String>();
+					if(!t.isNumber()) {
+						retNode = NodeManager::currentNM()->mkConst(::CVC4::Rational(-1));
+						break;
+					}
+				}
+			}
 		}
 	} else if(node.getKind() == kind::STRING_IN_REGEXP) {
 		retNode = rewriteMembership(node);

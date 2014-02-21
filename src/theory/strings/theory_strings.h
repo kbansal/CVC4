@@ -115,7 +115,6 @@ private:
     Node d_false;
     Node d_zero;
 	Node d_one;
-	Node d_ufSubstr;
 	// Options
 	bool d_all_warning;
 	bool d_opt_fmf;
@@ -224,6 +223,7 @@ private:
 
 	bool checkSimple();
     bool checkNormalForms();
+	void checkDeqNF();
 	bool checkLengthsEqc();
     bool checkCardinality();
     bool checkInductiveEquations();
@@ -290,9 +290,12 @@ private:
 	// Special String Functions
 	NodeList d_str_pos_ctn;
 	NodeList d_str_neg_ctn;
+	NodeList d_int_to_str;
 	std::map< Node, bool > d_str_ctn_eqlen;
+	std::map< Node, bool > d_str_neg_ctn_ulen;
 	std::map< Node, bool > d_str_pos_ctn_rewritten;
 	std::map< Node, bool > d_str_neg_ctn_rewritten;
+	std::map< std::pair <Node, int>, bool > d_int_to_str_rewritten;
 
 	// Regular Expression
 private:

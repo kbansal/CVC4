@@ -31,6 +31,8 @@ typedef enum {
   INST_WHEN_PRE_FULL,
   /** Apply instantiation round at full effort or above  */
   INST_WHEN_FULL,
+  /** Apply instantiation round at full effort, after all other theories finish, or above  */
+  INST_WHEN_FULL_DELAY,
   /** Apply instantiation round at full effort half the time, and last call always */
   INST_WHEN_FULL_LAST_CALL,
   /** Apply instantiation round at last call only */
@@ -86,6 +88,8 @@ typedef enum {
   QCF_CONFLICT_ONLY,
   /** use qcf for conflicts and propagations */
   QCF_PROP_EQ,
+  /** use qcf for conflicts, propagations and heuristic instantiations */
+  QCF_PARTIAL,
   /** use qcf for model checking */
   QCF_MC,
 } QcfMode;

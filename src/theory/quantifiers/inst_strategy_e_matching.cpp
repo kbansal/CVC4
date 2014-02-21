@@ -129,7 +129,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e )
   if( f.getNumChildren()==3 && options::userPatternsQuant()==USER_PAT_MODE_TRUST ){
     return STATUS_UNKNOWN;
   }else{
-    int peffort = f.getNumChildren()==3 ? 2 : 1;
+    int peffort = ( f.getNumChildren()==3 && options::userPatternsQuant()!=USER_PAT_MODE_IGNORE ) ? 2 : 1;
     //int peffort = 1;
     if( e<peffort ){
       return STATUS_UNFINISHED;
@@ -168,7 +168,9 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e )
           if( processTrigger && d_processed_trigger[f].find( tr )==d_processed_trigger[f].end() ){
             d_processed_trigger[f][tr] = true;
             //if( tr->isMultiTrigger() )
-              Trace("process-trigger") << "  Process " << (*tr) << "..." << std::endl;
+              Trace("process-trigger") << "  Process ";
+              tr->debugPrint("process-trigger");
+              Trace("process-trigger") << "..." << std::endl;
             InstMatch baseMatch( f );
             int numInst = tr->addInstantiations( baseMatch );
             //if( tr->isMultiTrigger() )

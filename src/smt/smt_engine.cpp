@@ -310,7 +310,13 @@ class SmtEnginePrivate : public NodeManagerListener {
    * Function symbol used to implement uninterpreted undefined string
    * semantics.  Needed to deal with partial charat/substr function.
    */
-  //Node d_substrUndef;
+  Node d_ufSubstr;
+
+  /**
+   * Function symbol used to implement uninterpreted undefined string
+   * semantics.  Needed to deal with partial str2int function.
+   */
+  Node d_ufS2I;
 
   /**
    * Function symbol used to implement uninterpreted division-by-zero
@@ -787,6 +793,34 @@ void SmtEngine::finalOptionsAreSet() {
     return;
   }
 
+  // for strings
+  if(options::stringExp()) {
+    if( !d_logic.isQuantified() ) {
+      d_logic = d_logic.getUnlockedCopy();
+      d_logic.enableQuantifiers();
+      Trace("smt") << "turning on quantifier logic, for strings-exp" << std::endl;
+    }
+    if(! options::finiteModelFind.wasSetByUser()) {
+      options::finiteModelFind.set( true );
+      Trace("smt") << "turning on finite-model-find, for strings-exp" << std::endl;
+    }
+    if(! options::fmfBoundInt.wasSetByUser()) {
+      options::fmfBoundInt.set( true );
+      Trace("smt") << "turning on fmf-bound-int, for strings-exp" << std::endl;
+    }
+    if(! options::rewriteDivk.wasSetByUser()) {
+      options::rewriteDivk.set( true );
+      Trace("smt") << "turning on rewrite-divk, for strings-exp" << std::endl;
+    }
+
+    /*
+    if(! options::stringFMF.wasSetByUser()) {
+      options::stringFMF.set( true );
+      Trace("smt") << "turning on strings-fmf, for strings-exp" << std::endl;
+    }
+    */
+  }
+
   if(options::bitvectorEagerBitblast()) {
     // Eager solver should use the internal decision strategy
     options::decisionMode.set(DECISION_STRATEGY_INTERNAL);
@@ -934,29 +968,6 @@ void SmtEngine::setLogicInternal() throw() {
     if(d_logic.isSharingEnabled() && !d_logic.isTheoryEnabled(THEORY_BV) && !d_logic.isTheoryEnabled(THEORY_STRINGS)) {
       Trace("smt") << "setting theoryof-mode to term-based" << endl;
       options::theoryOfMode.set(THEORY_OF_TERM_BASED);
-    }
-  }
-
-
-  // for strings
-  if(options::stringExp()) {
-    if( !d_logic.isQuantified() ) {
-      d_logic = d_logic.getUnlockedCopy();
-      d_logic.enableQuantifiers();
-      d_logic.lock();
-      Trace("smt") << "turning on quantifier logic, for strings-exp" << std::endl;
-    }
-    if(! options::finiteModelFind.wasSetByUser()) {
-      options::finiteModelFind.set( true );
-      Trace("smt") << "turning on finite-model-find, for strings-exp" << std::endl;
-    }
-    if(! options::fmfBoundInt.wasSetByUser()) {
-      options::fmfBoundInt.set( true );
-      Trace("smt") << "turning on fmf-bound-int, for strings-exp" << std::endl;
-    }
-    if(! options::stringFMF.wasSetByUser()) {
-      options::stringFMF.set( true );
-      Trace("smt") << "turning on strings-fmf, for strings-exp" << std::endl;
     }
   }
 
@@ -1174,10 +1185,13 @@ void SmtEngine::setLogicInternal() throw() {
     }
   }
   if ( options::fmfBoundInt() ){
+    //must have finite model finding on
+    options::finiteModelFind.set( true );
     if( options::mbqiMode()!=quantifiers::MBQI_NONE &&
+        options::mbqiMode()!=quantifiers::MBQI_FMC &&
         options::mbqiMode()!=quantifiers::MBQI_FMC_INTERVAL ){
-      //if bounded integers are set, must use full model check for MBQI
-      options::mbqiMode.set( quantifiers::MBQI_FMC );
+      //if bounded integers are set, use no MBQI by default
+      options::mbqiMode.set( quantifiers::MBQI_NONE );
     }
   }
   if( options::mbqiMode()==quantifiers::MBQI_INTERVAL ){
@@ -1186,6 +1200,9 @@ void SmtEngine::setLogicInternal() throw() {
   }
   if( options::ufssSymBreak() ){
     options::sortInference.set( true );
+  }
+  if( options::qcfMode.wasSetByUser() ){
+    options::quantConflictFind.set( true );
   }
 
   //until bugs 371,431 are fixed
@@ -1555,9 +1572,53 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashF
         node = expandBVDivByZero(node);
         break;
 
-	  //case kind::STRING_CHARAT:
-	  //case kind::STRING_SUBSTR:
-
+	  case kind::STRING_CHARAT: {
+		if(d_ufSubstr.isNull()) {
+			std::vector< TypeNode > argTypes;
+			argTypes.push_back(NodeManager::currentNM()->stringType());
+			argTypes.push_back(NodeManager::currentNM()->integerType());
+			argTypes.push_back(NodeManager::currentNM()->integerType());
+			d_ufSubstr = NodeManager::currentNM()->mkSkolem("__ufSS",
+								NodeManager::currentNM()->mkFunctionType(
+									argTypes, NodeManager::currentNM()->stringType()),
+								"uf substr",
+								NodeManager::SKOLEM_EXACT_NAME);
+		}
+		Node lenxgti = NodeManager::currentNM()->mkNode( kind::GT,
+							NodeManager::currentNM()->mkNode( kind::STRING_LENGTH, n[0] ), n[1] );
+		Node zero = NodeManager::currentNM()->mkConst( ::CVC4::Rational(0) );
+		Node t1greq0 = NodeManager::currentNM()->mkNode( kind::GEQ, n[1], zero);
+		Node cond = Rewriter::rewrite( NodeManager::currentNM()->mkNode( kind::AND, lenxgti, t1greq0 ));
+		Node one = NodeManager::currentNM()->mkConst( ::CVC4::Rational(1) );
+		Node totalf = NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR_TOTAL, n[0], n[1], one);
+		Node uf = NodeManager::currentNM()->mkNode(kind::APPLY_UF, d_ufSubstr, n[0], n[1], one);
+		node = NodeManager::currentNM()->mkNode( kind::ITE, cond, totalf, uf );
+		break;
+	  }
+	  case kind::STRING_SUBSTR: {
+		if(d_ufSubstr.isNull()) {
+			std::vector< TypeNode > argTypes;
+			argTypes.push_back(NodeManager::currentNM()->stringType());
+			argTypes.push_back(NodeManager::currentNM()->integerType());
+			argTypes.push_back(NodeManager::currentNM()->integerType());
+			d_ufSubstr = NodeManager::currentNM()->mkSkolem("__ufSS",
+								NodeManager::currentNM()->mkFunctionType(
+									argTypes, NodeManager::currentNM()->stringType()),
+								"uf substr",
+								NodeManager::SKOLEM_EXACT_NAME);
+		}
+		Node lenxgti = NodeManager::currentNM()->mkNode( kind::GEQ,
+							NodeManager::currentNM()->mkNode( kind::STRING_LENGTH, n[0] ),
+							NodeManager::currentNM()->mkNode( kind::PLUS, n[1], n[2] ) );
+		Node zero = NodeManager::currentNM()->mkConst( ::CVC4::Rational(0) );
+		Node t1geq0 = NodeManager::currentNM()->mkNode(kind::GEQ, n[1], zero);
+		Node t2geq0 = NodeManager::currentNM()->mkNode(kind::GEQ, n[2], zero);
+		Node cond = Rewriter::rewrite( NodeManager::currentNM()->mkNode( kind::AND, lenxgti, t1geq0, t2geq0 ));
+		Node totalf = NodeManager::currentNM()->mkNode(kind::STRING_SUBSTR_TOTAL, n[0], n[1], n[2]);
+		Node uf = NodeManager::currentNM()->mkNode(kind::APPLY_UF, d_ufSubstr, n[0], n[1], n[2]);
+		node = NodeManager::currentNM()->mkNode( kind::ITE, cond, totalf, uf );
+		break;
+	  }
       case kind::DIVISION: {
         // partial function: division
         if(d_divByZero.isNull()) {
@@ -3074,11 +3135,18 @@ void SmtEnginePrivate::processAssertions() {
   // Assertions ARE guaranteed to be rewritten by this point
 
   if( d_smt.d_logic.isTheoryEnabled(THEORY_STRINGS) ) {
+    dumpAssertions("pre-strings-pp", d_assertionsToPreprocess);
     CVC4::theory::strings::StringsPreprocess sp;
-    sp.simplify( d_assertionsToPreprocess );
+    std::vector<Node> newNodes;
+    newNodes.push_back(d_assertionsToPreprocess[d_realAssertionsEnd - 1]);
+    sp.simplify( d_assertionsToPreprocess, newNodes );
+    if(newNodes.size() > 1) {
+      d_assertionsToPreprocess[d_realAssertionsEnd - 1] = NodeManager::currentNM()->mkNode(kind::AND, newNodes);
+    }
     for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
       d_assertionsToPreprocess[i] = Rewriter::rewrite( d_assertionsToPreprocess[i] );
     }
+    dumpAssertions("post-strings-pp", d_assertionsToPreprocess);
   }
   if( d_smt.d_logic.isQuantified() ){
     dumpAssertions("pre-skolem-quant", d_assertionsToPreprocess);

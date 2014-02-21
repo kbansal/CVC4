@@ -32,6 +32,10 @@ Modes currently supported by the --inst-when option:\n\
 full (default)\n\
 + Run instantiation round at full effort, before theory combination.\n\
 \n\
+full-delay \n\
++ Run instantiation round at full effort, before theory combination, after\n\
+  all other theories have finished.\n\
+\n\
 full-last-call\n\
 + Alternate running instantiation rounds at full effort and last\n\
   call.  In other words, interleave instantiation and theory combination.\n\
@@ -124,6 +128,9 @@ conflict \n\
 prop-eq \n\
 + Apply QCF to propagate equalities as well. \n\
 \n\
+partial \n\
++ Apply QCF to instantiate heuristically as well. \n\
+\n\
 mc \n\
 + Apply QCF in a complete way, so that a model is ensured when it fails. \n\
 \n\
@@ -147,6 +154,8 @@ inline InstWhenMode stringToInstWhenMode(std::string option, std::string optarg,
     return INST_WHEN_PRE_FULL;
   } else if(optarg == "full") {
     return INST_WHEN_FULL;
+  } else if(optarg == "full-delay") {
+    return INST_WHEN_FULL_DELAY;
   } else if(optarg == "full-last-call") {
     return INST_WHEN_FULL_LAST_CALL;
   } else if(optarg == "last-call") {
@@ -252,6 +261,8 @@ inline QcfMode stringToQcfMode(std::string option, std::string optarg, SmtEngine
     return QCF_CONFLICT_ONLY;
   } else if(optarg == "prop-eq") {
     return QCF_PROP_EQ;
+  } else if(optarg == "partial") {
+    return QCF_PARTIAL;
   } else if(optarg == "mc" ) {
     return QCF_MC;
   } else if(optarg ==  "help") {

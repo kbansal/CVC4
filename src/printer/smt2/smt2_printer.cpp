@@ -282,6 +282,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::STRING_CONCAT: out << "str.++ "; break;
   case kind::STRING_IN_REGEXP: out << "str.in.re "; break;
   case kind::STRING_LENGTH: out << "str.len "; break;
+  case kind::STRING_SUBSTR_TOTAL:
   case kind::STRING_SUBSTR: out << "str.substr "; break;
   case kind::STRING_CHARAT: out << "str.at "; break;
   case kind::STRING_STRCTN: out << "str.contain "; break;
@@ -289,6 +290,8 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::STRING_STRREPL: out << "str.replace "; break;
   case kind::STRING_PREFIX: out << "str.prefixof "; break;
   case kind::STRING_SUFFIX: out << "str.suffixof "; break;
+  case kind::STRING_ITOS: out << "int.to.str "; break;
+  case kind::STRING_STOI: out << "str.to.int "; break;
   case kind::STRING_TO_REGEXP: out << "str.to.re "; break;
   case kind::REGEXP_CONCAT: out << "re.++ "; break;
   case kind::REGEXP_OR: out << "re.or "; break;
