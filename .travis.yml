@@ -2,15 +2,11 @@ language: cpp
 cache: apt
 compiler:
  - gcc
- - clang
 env:
- - TRAVIS_CVC4=yes TRAVIS_CVC4_CONFIG='production --enable-language-bindings=java,c'
  - TRAVIS_CVC4=yes TRAVIS_CVC4_CONFIG='debug --enable-language-bindings=java,c'
- - TRAVIS_CVC4=yes TRAVIS_CVC4_DISTCHECK=yes
- - TRAVIS_LFSC=yes
- - TRAVIS_LFSC=yes TRAVIS_LFSC_DISTCHECK=yes
 before_install:
 # dhart/ppa is for cxxtest package, which doesn't appear officially until quantal
+ - find / -iname "*libSegFault.so*"
  - travis_retry sudo apt-add-repository -y ppa:dhart/ppa
  - travis_retry sudo apt-get update -qq
  - travis_retry sudo apt-get install -qq libgmp-dev antlr3 libantlr3c-dev libboost-dev libboost-thread-dev swig2.0 libcln-dev cxxtest openjdk-7-jdk
@@ -69,10 +65,9 @@ script:
      $1 || exit 1
      echo "travis_fold:end:$1"
    }
-   [ -n "$TRAVIS_CVC4" ] && [ -n "$TRAVIS_CVC4_DISTCHECK" ] && run addNewTheoryTest
    [ -n "$TRAVIS_CVC4" ] && run configureCVC4
    [ -n "$TRAVIS_CVC4" ] && [ -n "$TRAVIS_CVC4_DISTCHECK" ] && run makeDistcheck
-   [ -n "$TRAVIS_CVC4" ] && [ -z "$TRAVIS_CVC4_DISTCHECK" ] && run makeCheck && run makeCheckPortfolio && run makeExamples
+   [ -n "$TRAVIS_CVC4" ] && [ -z "$TRAVIS_CVC4_DISTCHECK" ] && run makeCheckPortfolio && run makeExamples
    [ -n "$TRAVIS_LFSC" ] && run LFSCchecks
    [ -z "$TRAVIS_CVC4" ] && [ -z "$TRAVIS_LFSC" ] && error "Unknown Travis-CI configuration"
    echo "travis_fold:end:load_script"
