@@ -6,7 +6,6 @@ env:
  - TRAVIS_CVC4=yes TRAVIS_CVC4_CONFIG='debug --enable-language-bindings=java,c'
 before_install:
 # dhart/ppa is for cxxtest package, which doesn't appear officially until quantal
- - find / -iname "*libSegFault.so*"
  - travis_retry sudo apt-add-repository -y ppa:dhart/ppa
  - travis_retry sudo apt-get update -qq
  - travis_retry sudo apt-get install -qq libgmp-dev antlr3 libantlr3c-dev libboost-dev libboost-thread-dev swig2.0 libcln-dev cxxtest openjdk-7-jdk

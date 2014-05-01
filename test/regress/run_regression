@@ -35,7 +35,8 @@ if [ $# -lt 2 ]; then
   exit 1
 fi
 
-wrapper=
+mydir=$(dirname $0)
+wrapper="$mydir/../../contrib/seg_wrapper.sh "
 while [ $# -gt 2 ]; do
   wrapper="$wrapper$1 "
   shift
