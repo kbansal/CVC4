@@ -65,6 +65,9 @@ script:
      echo "travis_fold:end:$1"
    }
    [ -n "$TRAVIS_CVC4" ] && run configureCVC4
+   make -j2
+   contrib/seg_wrapper.sh builds/bin/pcvc4 test/regress/regress0/strings/fmf001.smt2
+   contrib/seg_wrapper.sh builds/bin/pcvc4 test/regress/regress0/strings/loop009.smt2
    [ -n "$TRAVIS_CVC4" ] && [ -n "$TRAVIS_CVC4_DISTCHECK" ] && run makeDistcheck
    [ -n "$TRAVIS_CVC4" ] && [ -z "$TRAVIS_CVC4_DISTCHECK" ] && run makeCheckPortfolio && run makeExamples
    [ -n "$TRAVIS_LFSC" ] && run LFSCchecks

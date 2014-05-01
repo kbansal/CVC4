@@ -97,6 +97,9 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   // Initialize the signal handlers
   cvc4_init();
 
+  int* a = NULL;
+  *a = 10;
+
   progPath = argv[0];
 
   // Parse the options
