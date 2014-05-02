@@ -182,9 +182,9 @@ private:
   /** do pending merged */
   void doPendingMerges();
   /** get or make eqc info */
-  EqcInfo* getOrMakeEqcInfo( Node n, bool doMake = false );
+  EqcInfo* getOrMakeEqcInfo( TNode n, bool doMake = false );
   /** has eqc info */
-  bool hasEqcInfo( Node n ) { return d_labels.find( n )!=d_labels.end(); }
+  bool hasEqcInfo( TNode n ) { return d_labels.find( n )!=d_labels.end(); }
   /** get eqc constructor */
   TNode getEqcConstructor( TNode r );
 protected:
@@ -245,8 +245,8 @@ private:
   void collapseSelector( Node s, Node c );
   /** for checking if cycles exist */
   void checkCycles();
-  Node searchForCycle( Node n, Node on,
-                       std::map< Node, bool >& visited,
+  Node searchForCycle( TNode n, TNode on,
+                       std::map< TNode, bool >& visited,
                        std::vector< TNode >& explanation, bool firstTime = true );
   /** for checking whether two codatatype terms must be equal */
   void separateBisimilar( std::vector< Node >& part, std::vector< std::vector< Node > >& part_out,
@@ -271,7 +271,7 @@ private:
   /** must communicate fact */
   bool mustCommunicateFact( Node n, Node exp );
   /** check clash mod eq */
-  bool checkClashModEq( Node n1, Node n2, std::vector< Node >& exp );
+  bool checkClashModEq( TNode n1, TNode n2, std::vector< Node >& exp, std::vector< std::pair< TNode, TNode > >& deq_cand );
 private:
   //equality queries
   bool hasTerm( TNode a );

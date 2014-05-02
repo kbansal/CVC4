@@ -31,8 +31,13 @@ using namespace CVC4::theory::quantifiers;
 using namespace CVC4::theory::inst;
 
 InstantiationEngine::InstantiationEngine( QuantifiersEngine* qe, bool setIncomplete ) :
-QuantifiersModule( qe ), d_setIncomplete( setIncomplete ), d_ierCounter( 0 ), d_performCheck( false ){
+QuantifiersModule( qe ), d_isup(NULL), d_i_ag(NULL), d_setIncomplete( setIncomplete ), d_ierCounter( 0 ), d_performCheck( false ){
 
+}
+
+InstantiationEngine::~InstantiationEngine() {
+  delete d_i_ag;
+  delete d_isup;
 }
 
 void InstantiationEngine::finishInit(){
@@ -48,14 +53,14 @@ void InstantiationEngine::finishInit(){
     }else{
       d_isup = NULL;
     }
-    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( d_quantEngine, Trigger::TS_ALL, 3 );
-    i_ag->setGenerateAdditional( true );
-    addInstStrategy( i_ag );
+    d_i_ag = new InstStrategyAutoGenTriggers( d_quantEngine, Trigger::TS_ALL, 3 );
+    d_i_ag->setGenerateAdditional( true );
+    addInstStrategy( d_i_ag );
     //addInstStrategy( new InstStrategyAddFailSplits( this, ie ) );
     if( !options::finiteModelFind() && options::fullSaturateQuant() ){
       addInstStrategy( new InstStrategyFreeVariable( d_quantEngine ) );
     }
-    //d_isup->setPriorityOver( i_ag );
+    //d_isup->setPriorityOver( d_i_ag );
     //d_isup->setPriorityOver( i_agm );
     //i_ag->setPriorityOver( i_agm );
   }
@@ -203,6 +208,7 @@ void InstantiationEngine::check( Theory::Effort e ){
       clSet = double(clock())/double(CLOCKS_PER_SEC);
       Trace("inst-engine") << "---Instantiation Engine Round, effort = " << e << "---" << std::endl;
     }
+    ++(d_statistics.d_instantiation_rounds);
     bool quantActive = false;
     Debug("quantifiers") << "quantifiers:  check:  asserted quantifiers size"
                          << d_quantEngine->getModel()->getNumAssertedQuantifiers() << std::endl;
@@ -433,7 +439,8 @@ InstantiationEngine::Statistics::Statistics():
   d_instantiations_guess("InstantiationEngine::Instantiations_Guess", 0),
   d_instantiations_cbqi_arith("InstantiationEngine::Instantiations_Cbqi_Arith", 0),
   d_instantiations_cbqi_arith_minus("InstantiationEngine::Instantiations_Cbqi_Arith_Minus", 0),
-  d_instantiations_cbqi_datatypes("InstantiationEngine::Instantiations_Cbqi_Datatypes", 0)
+  d_instantiations_cbqi_datatypes("InstantiationEngine::Instantiations_Cbqi_Datatypes", 0),
+  d_instantiation_rounds("InstantiationEngine::Rounds", 0 )
 {
   StatisticsRegistry::registerStat(&d_instantiations_user_patterns);
   StatisticsRegistry::registerStat(&d_instantiations_auto_gen);
@@ -442,6 +449,7 @@ InstantiationEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_instantiations_cbqi_arith);
   StatisticsRegistry::registerStat(&d_instantiations_cbqi_arith_minus);
   StatisticsRegistry::registerStat(&d_instantiations_cbqi_datatypes);
+  StatisticsRegistry::registerStat(&d_instantiation_rounds);
 }
 
 InstantiationEngine::Statistics::~Statistics(){
@@ -452,4 +460,5 @@ InstantiationEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations_cbqi_arith);
   StatisticsRegistry::unregisterStat(&d_instantiations_cbqi_arith_minus);
   StatisticsRegistry::unregisterStat(&d_instantiations_cbqi_datatypes);
+  StatisticsRegistry::unregisterStat(&d_instantiation_rounds);
 }
