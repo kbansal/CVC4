@@ -24,8 +24,7 @@
 #include "smt/options.h"
 
 using namespace std;
-
-namespace CVC4 {
+using namespace CVC4;
 
 DecisionEngine::DecisionEngine(context::Context *sc,
                                context::UserContext *uc) :
@@ -38,6 +37,7 @@ DecisionEngine::DecisionEngine(context::Context *sc,
   d_satContext(sc),
   d_userContext(uc),
   d_result(sc, SAT_VALUE_UNKNOWN),
+  d_ignoreGetNextRequests(false),
   d_engineState(0)
 {
   Trace("decision") << "Creating decision engine" << std::endl;
@@ -55,12 +55,14 @@ void DecisionEngine::init()
                          << options::decisionStopOnly() << std::endl;
 
   if(options::decisionMode() == decision::DECISION_STRATEGY_INTERNAL) { }
-  if(options::decisionMode() == decision::DECISION_STRATEGY_JUSTIFICATION) {
+  if(options::decisionMode() == decision::DECISION_STRATEGY_JUSTIFICATION ||
+     options::decisionMode() == decision::DECISION_STRATEGY_ALTERNATE) {
     ITEDecisionStrategy* ds = 
       new decision::JustificationHeuristic(this, d_userContext, d_satContext);
     enableStrategy(ds);
     d_needIteSkolemMap.push_back(ds);
   }
+  notifyRestart();
 }
 
 
@@ -75,6 +77,26 @@ void DecisionEngine::clearStrategies(){
   }
   d_enabledStrategies.clear();
   d_needIteSkolemMap.clear();
+}
+
+SatLiteral DecisionEngine::getNext(bool &stopSearch) {
+  Assert(d_cnfStream != NULL,
+         "Forgot to set cnfStream for decision engine?");
+  Assert(d_satSolver != NULL,
+         "Forgot to set satSolver for decision engine?");
+
+  SatLiteral ret = undefSatLiteral;
+
+  // alternate
+  if(d_ignoreGetNextRequests) { return ret; }
+
+  for(unsigned i = 0;
+      i < d_enabledStrategies.size()
+      and ret == undefSatLiteral
+      and stopSearch == false; ++i) {
+    ret = d_enabledStrategies[i]->getNext(stopSearch);
+  }
+  return ret;
 }
 
 bool DecisionEngine::isRelevant(SatVariable var)
@@ -126,4 +148,9 @@ void DecisionEngine::addAssertions(const vector<Node> &assertions,
       addAssertions(assertions, assertionsEnd, iteSkolemMap);
 }
 
-}/* CVC4 namespace */
+void DecisionEngine::notifyRestart() {
+  if(options::decisionMode() == decision::DECISION_STRATEGY_ALTERNATE) {
+    d_ignoreGetNextRequests = not d_ignoreGetNextRequests;
+  }
+}
+

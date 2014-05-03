@@ -42,7 +42,12 @@ enum DecisionMode {
   /**
    * Use may-relevancy.
    */
-  DECISION_STRATEGY_RELEVANCY
+  DECISION_STRATEGY_RELEVANCY,
+
+  /**
+   * Alternate between justification heuristic and internal decision strategy
+   */
+  DECISION_STRATEGY_ALTERNATE
 
 };/* enum DecisionMode */
 

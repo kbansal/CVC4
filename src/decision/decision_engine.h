@@ -56,6 +56,9 @@ class DecisionEngine {
   // Does decision engine know the answer?
   context::CDO<SatValue> d_result;
 
+  // Should we ignore requests?
+  bool d_ignoreGetNextRequests;
+
   // Disable creating decision engine without required parameters
   DecisionEngine();
 
@@ -116,21 +119,7 @@ public:
   // Interface for External World to use our services
 
   /** Gets the next decision based on strategies that are enabled */
-  SatLiteral getNext(bool &stopSearch) {
-    Assert(d_cnfStream != NULL,
-           "Forgot to set cnfStream for decision engine?");
-    Assert(d_satSolver != NULL,
-           "Forgot to set satSolver for decision engine?");
-
-    SatLiteral ret = undefSatLiteral;
-    for(unsigned i = 0; 
-        i < d_enabledStrategies.size() 
-          and ret == undefSatLiteral
-          and stopSearch == false; ++i) {
-      ret = d_enabledStrategies[i]->getNext(stopSearch);
-    }
-    return ret;
-  }
+  SatLiteral getNext(bool &stopSearch);
 
   /** Is a sat variable relevant */
   bool isRelevant(SatVariable var);
@@ -168,11 +157,6 @@ public:
 
   // External World helping us help the Strategies
 
-  /** If one of the enabled strategies needs them  */
-  /* bool needIteSkolemMap() { */
-  /*   return d_needIteSkolemMap.size() > 0; */
-  /* } */
-
   /* add a set of assertions */
   void addAssertions(const vector<Node> &assertions);
 
@@ -188,6 +172,9 @@ public:
 
   /* add a single assertion */
   void addAssertion(Node n);
+
+  /* sat solver restart notification */
+  void notifyRestart();
 
   // Interface for Strategies to use stuff stored in Decision Engine
   // (which was possibly requested by them on initialization)

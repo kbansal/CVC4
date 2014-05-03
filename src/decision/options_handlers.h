@@ -48,6 +48,8 @@ inline DecisionMode stringToDecisionMode(std::string option, std::string optarg,
   } else if(optarg == "justification-stoponly") {
     options::decisionStopOnly.set(true);
     return DECISION_STRATEGY_JUSTIFICATION;
+  } else if(optarg == "alternate") {
+    return DECISION_STRATEGY_ALTERNATE;
   } else if(optarg == "help") {
     puts(decisionModeHelp.c_str());
     exit(1);

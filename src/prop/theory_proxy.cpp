@@ -105,6 +105,7 @@ TNode TheoryProxy::getNode(SatLiteral lit) {
 void TheoryProxy::notifyRestart() {
   d_propEngine->checkTime();
   d_theoryEngine->notifyRestart();
+  d_decisionEngine->notifyRestart();
 
   static uint32_t lemmaCount = 0;
 
