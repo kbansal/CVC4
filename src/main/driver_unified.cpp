@@ -181,7 +181,26 @@ int runCvc4(int argc, char* argv[], Options& opts) {
   if(opts[options::inputLanguage] == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
       // We can't do any fancy detection on stdin
-      opts.set(options::inputLanguage, language::input::LANG_CVC4);
+      // ... umm, can't we? :)
+      int first_char;
+      if(!opts[options::interactive] && (first_char = cin.peek()) && first_char == '(')
+        {
+          cin.get();
+          int second_char = cin.peek();
+          if(second_char == 'b') {
+            Notice() << "Detected language SMTLIBv1 (if incorrect, specify using --lang <language>)." << endl;
+            opts.set(options::inputLanguage, language::input::LANG_SMTLIB_V1);
+
+          } else {
+            Notice() << "Detected language SMTLIBv2 (if incorrect, specify using --lang <language>)." << endl;
+            opts.set(options::inputLanguage, language::input::LANG_SMTLIB_V2);
+          }
+          cin.unget();
+        }
+      else
+        {
+          opts.set(options::inputLanguage, language::input::LANG_CVC4);
+        }
     } else {
       unsigned len = strlen(filename);
       if(len >= 5 && !strcmp(".smt2", filename + len - 5)) {
