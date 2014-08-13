@@ -307,9 +307,20 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
     size_t threadStackSize = d_options[options::threadStackSize];
     threadStackSize *= 1024 * 1024;
 
+    bool waitToJoin = d_options[options::waitToJoin];
+    if(!d_options.wasSetByUser(options::waitToJoin) &&
+       !d_exprMgrs[0]->getOptions()[options::incrementalSolving] &&
+       d_options[options::earlyExit]) {
+      // if not an incremental benchmark, and we do an early exit (no
+      // destructors are called), no need to wait for other threads to
+      // finish
+      waitToJoin = false;
+      Chat() << "Assuming --no-wait-to-join as running in --no-incremental --early-exit mode." << endl;
+    }
+
     pair<int, bool> portfolioReturn =
         runPortfolio(d_numThreads, smFn, fns, threadStackSize,
-                     d_options[options::waitToJoin], d_statWaitTime);
+                     waitToJoin, d_statWaitTime);
 
 #ifdef CVC4_STATISTICS_ON
     assert( d_statWaitTime.running() );
@@ -350,10 +361,15 @@ bool CommandExecutorPortfolio::doCommandSingleton(Command* cmd)
 #endif /* CVC4_COMPETITION_MODE */
     }
 
-    /* cleanup this check sat specific stuff */
-    lemmaSharingCleanup();
+    // cleanup only if we are sure other threads are not running
+    if(waitToJoin) {
 
-    delete[] fns;
+      /* cleanup this check sat specific stuff */
+      lemmaSharingCleanup();
+
+      delete[] fns;
+
+    }
 
     bool status = portfolioReturn.second;
 

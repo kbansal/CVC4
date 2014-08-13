@@ -38,12 +38,24 @@ boost::condition_variable condition_var_main_wait;
 bool global_flag_done;
 int global_winner;
 
+bool exception_in_some_thread = false;
+
 template<typename S>
-void runThread(int thread_id, boost::function<S()> threadFn, S& returnValue)
+void runThread(int thread_id, boost::function<S()> threadFn, S& returnValue, std::string& exception_msg)
 {
   /* Uncomment line to delay first thread, useful to unearth errors/debug */
   // if(thread_id == 0) { sleep(1); }
-  returnValue = threadFn();
+
+  std::ostringstream exception_oss;
+
+  try {
+    returnValue = threadFn();
+  } catch (std::exception& e) {
+    exception_in_some_thread = true;
+    exception_oss << "Exception in worker thread " << thread_id << ":" << std::endl
+                  << e.what();
+    exception_msg += exception_oss.str();
+  }
 
   if( mutex_done.try_lock() ) {
     if(global_flag_done == false) 
@@ -69,6 +81,7 @@ std::pair<int, S> runPortfolio(int numThreads,
   boost::thread thread_driver;
   boost::thread* threads = new boost::thread[numThreads];
   S* threads_returnValue = new S[numThreads];
+  std::string* exception_msgs = new std::string[numThreads];
 
   global_flag_done = false;
   global_winner = -1;
@@ -84,7 +97,8 @@ std::pair<int, S> runPortfolio(int numThreads,
 
     threads[t] =
       boost::thread(attrs, boost::bind(runThread<S>, t, threadFns[t],
-                                       boost::ref(threads_returnValue[t]) ) );
+                                       boost::ref(threads_returnValue[t]),
+                                       boost::ref(exception_msgs[t]) ) );
 #else /* BOOST_HAS_THREAD_ATTR */
     if(stackSize > 0) {
       throw OptionException("cannot specify a stack size for worker threads; requires CVC4 to be built with Boost thread library >= 1.50.0");
@@ -92,7 +106,8 @@ std::pair<int, S> runPortfolio(int numThreads,
 
     threads[t] =
       boost::thread(boost::bind(runThread<S>, t, threadFns[t],
-                                boost::ref(threads_returnValue[t]) ) );
+                                boost::ref(threads_returnValue[t]),
+                                boost::ref(exception_msgs[t]) ) );
 
 #endif /* BOOST_HAS_THREAD_ATTR */
 
@@ -114,6 +129,15 @@ std::pair<int, S> runPortfolio(int numThreads,
   boost::unique_lock<boost::mutex> lock(mutex_main_wait);
   while(global_flag_done == false) {
     condition_var_main_wait.wait(lock);
+  }
+
+  if(exception_in_some_thread) {
+    for(int t = 0; t < numThreads; ++t) {
+      if(exception_msgs[t].size() != 0) {
+        throw Exception(exception_msgs[t]);
+      }
+    }
+    assert(false);
   }
 
   statWaitTime.start();

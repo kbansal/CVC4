@@ -153,7 +153,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_sharedTermsVisitor(d_sharedTerms),
   d_unconstrainedSimp(new UnconstrainedSimplifier(context, logicInfo)),
   d_bvToBoolPreprocessor(),
-  d_arithSubstitutionsAdded("zzz::arith::substitutions", 0)
+  d_arithSubstitutionsAdded("theory::arith::zzz::arith::substitutions", 0)
 {
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId != theory::THEORY_LAST; ++ theoryId) {
     d_theoryTable[theoryId] = NULL;
