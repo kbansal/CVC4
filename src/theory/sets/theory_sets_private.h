@@ -77,6 +77,7 @@ private:
     TimerStat d_getModelValueTime;
     IntStat d_memberLemmas;
     IntStat d_disequalityLemmas;
+    IntStat d_disequalityLemmasSaved;
 
     Statistics();
     ~Statistics();
@@ -168,6 +169,10 @@ private:
 
   // for any nodes we need to save, because others use TNode
   context::CDHashSet <Node, NodeHashFunction> d_nodeSaver;
+
+  /** Hold disequaltiies till full effort */
+  context::CDList <Node> d_disequalities;
+  context::CDO <unsigned> d_disequalitiesHead;
 
   /** Lemmas and helper functions */
   context::CDQueue <Node> d_pending;

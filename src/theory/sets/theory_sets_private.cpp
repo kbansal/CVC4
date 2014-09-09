@@ -97,6 +97,26 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     Debug("sets") << "[sets]  is complete = " << isComplete() << std::endl;
   }
 
+  if(d_conflict) return;
+
+  if( options::setsModelBasedLemmas() && Theory::fullEffort(level) ) {
+    for(unsigned i = 0; i < d_disequalities.size(); ++i) {
+      if(d_pendingEverInserted.find(d_disequalities[i]) == d_pendingEverInserted.end()) {
+        Node a, b;
+        if( !(a = getModelValue(d_disequalities[i][0])).isNull() &&
+            !(b = getModelValue(d_disequalities[i][1])).isNull() &&
+            a != b ) {
+          Trace("sets-lemma") << "[sets-lemma] Not generating lemma for " << d_disequalities[i] << ". They have values: " << std::endl
+                              << "[sets-lemma]   " << getModelValue(d_disequalities[i][0]) << std::endl
+                              << "[sets-lemma]   " << getModelValue(d_disequalities[i][1]) << std::endl;
+          ++d_statistics.d_disequalityLemmasSaved;
+        } else {
+          addToPending(d_disequalities[i]);
+        }
+      }
+    }
+  }
+
   if( (level == Theory::EFFORT_FULL || options::setsEagerLemmas() ) && !isComplete()) {
     d_external.d_out->lemma(getLemma());
     return;
@@ -137,7 +157,11 @@ void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
   }
 
   if(!polarity && atom[0].getType().isSet()) {
-    addToPending(atom);
+    if(options::setsModelBasedLemmas()) {
+      d_disequalities.push_back(atom);
+    } else {
+      addToPending(atom);
+    }
   }
 
 }/* TheorySetsPrivate::assertEquality() */
@@ -867,8 +891,12 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
 
 Node TheorySetsPrivate::getModelValue(TNode n)
 {
-  CodeTimer codeTimer(d_statistics.d_getModelValueTime);
-  return d_termInfoManager->getModelValue(n);
+  if(!d_statistics.d_getModelValueTime.running()) {
+    CodeTimer codeTimer(d_statistics.d_getModelValueTime);
+    return d_termInfoManager->getModelValue(n);
+  } else {
+    return d_termInfoManager->getModelValue(n);
+  }
 }
 
 /********************** Helper functions ***************************/
@@ -920,11 +948,13 @@ TheorySetsPrivate::Statistics::Statistics() :
   , d_getModelValueTime("theory::sets::getModelValueTime")
   , d_memberLemmas("theory::sets::lemmas::member", 0)
   , d_disequalityLemmas("theory::sets::lemmas::disequality", 0)
+  , d_disequalityLemmasSaved("theory::sets::disequalityLemmasSaved", 0)
 {
   StatisticsRegistry::registerStat(&d_checkTime);
   StatisticsRegistry::registerStat(&d_getModelValueTime);
   StatisticsRegistry::registerStat(&d_memberLemmas);
   StatisticsRegistry::registerStat(&d_disequalityLemmas);
+  StatisticsRegistry::registerStat(&d_disequalityLemmasSaved);
 }
 
 
@@ -933,6 +963,7 @@ TheorySetsPrivate::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_getModelValueTime);
   StatisticsRegistry::unregisterStat(&d_memberLemmas);
   StatisticsRegistry::unregisterStat(&d_disequalityLemmas);
+  StatisticsRegistry::unregisterStat(&d_disequalityLemmasSaved);
 }
 
 
@@ -1070,6 +1101,8 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_propagationQueue(c),
   d_settermPropagationQueue(c),
   d_nodeSaver(c),
+  d_disequalities(u),
+  d_disequalitiesHead(u, 0),
   d_pending(c),
   d_pendingDisequal(c),
   d_pendingEverInserted(u),
@@ -1521,13 +1554,28 @@ Node TheorySetsPrivate::TermInfoManager::getModelValue(TNode n)
     elements.insert(d_eqEngine->getRepresentative(n));
   }
   BOOST_FOREACH(TNode e, elements) {
+    Node n;
     if(e.isConst()) {
-      elements_const.insert(e);
+      n = e;
+    } else if(e.getType().isSet()) {
+      // might not be shared, so just ask internally.
+      n = d_theory.getModelValue(e);
     } else {
-      elements_const.insert(d_theory.d_external.d_valuation.getModelValue(e));
+      n = d_theory.d_external.d_valuation.getModelValue(e);
+    }
+
+    // if element's model value isNull (i.e. not computable, set's value isn't
+    // either)
+    if(n.isNull()) {
+      return n;
+    } else {
+      elements_const.insert(n);
     }
   }
   Node v = d_theory.elementsToShape(elements_const, n.getType());
+  Debug("sets-elementstoshape") << v << std::endl;
+  v = theory::Rewriter::rewrite(v);
+  Debug("sets-elementstoshape") << v << std::endl << std::endl;
   d_theory.d_modelCache[n] = v;
   return v;
 }

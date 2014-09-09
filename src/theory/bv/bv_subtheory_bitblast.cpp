@@ -219,7 +219,7 @@ void BitblastSolver::collectModelInfo(TheoryModel* m, bool fullModel) {
 
 Node BitblastSolver::getModelValue(TNode node)
 {
-  Node val = d_bitblaster->getTermModel(node, false);
+  Node val = d_bitblaster->getTermModel(node, true);
   return val;
 }
 

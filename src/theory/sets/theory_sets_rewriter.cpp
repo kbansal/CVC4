@@ -20,8 +20,8 @@ namespace CVC4 {
 namespace theory {
 namespace sets {
 
-typedef std::set<TNode> Elements;
-typedef std::hash_map<TNode, Elements, TNodeHashFunction> SettermElementsMap;
+typedef std::set<Node> Elements;
+typedef std::hash_map<Node, Elements, TNodeHashFunction> SettermElementsMap;
 
 bool checkConstantMembership(TNode elementTerm, TNode setTerm)
 {

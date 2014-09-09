@@ -17,4 +17,7 @@ expert-option setsCare1 --sets-care1 bool :default false
 option setsPropFull --sets-prop-full bool :default true
  additional propagation at full effort
 
+option setsModelBasedLemmas --sets-model-based-lemmas bool :default true
+ add disequality models at full effort only if current model has them equal
+
 endmodule
