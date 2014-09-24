@@ -163,5 +163,8 @@ option pbRewriteThreshold --pb-rewrite-threshold int :default 256
 
 option gcArithOnRestart --gc-arith-on-restart bool :default false
  garbage collects the arithmetic constraint database on restarts
+option arithDistinctDefaults --distinct-defaults bool :default false
+ try to assignm each variable a distinct value by default
+
 
 endmodule
