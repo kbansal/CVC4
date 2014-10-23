@@ -43,6 +43,22 @@ public:
     }
   }
 
+  static Node elementsToSet(std::set<Node> elements, TypeNode setType)
+  {
+    NodeManager* nm = NodeManager::currentNM();
+    if(elements.size() == 0) {
+      return nm->mkConst(EmptySet(nm->toType(setType)));
+    } else {
+      typeof(elements.begin()) it = elements.begin();
+      Node cur = nm->mkNode(kind::SINGLETON, *it);
+      while( ++it != elements.end() ) {
+        cur = nm->mkNode(kind::UNION, cur,
+                         nm->mkNode(kind::SINGLETON, *it));
+      }
+      return cur;
+    }
+  }
+
 };
 
 }

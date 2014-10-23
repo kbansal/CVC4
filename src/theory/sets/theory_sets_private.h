@@ -179,11 +179,11 @@ private:
   Node getLemma();
 
   /** model generation and helper function */
-  typedef std::set<TNode> Elements;
-  typedef std::hash_map<TNode, Elements, TNodeHashFunction> SettermElementsMap;
+  typedef std::set<Node> Elements;
+  typedef std::hash_map<Node, Elements, NodeHashFunction> SettermElementsMap;
   const Elements& getElements(TNode setterm, SettermElementsMap& settermElementsMap) const;
-  Node elementsToShape(Elements elements, TypeNode setType) const;
-  Node elementsToShape(std::set<Node> elements, TypeNode setType) const;
+  // Node elementsToShape(Elements elements, TypeNode setType) const;
+  // Node elementsToShape(std::set<Node> elements, TypeNode setType) const;
   bool checkModel(const SettermElementsMap& settermElementsMap, TNode S) const;
 
   context::CDHashMap <Node, Node, NodeHashFunction> d_modelCache;

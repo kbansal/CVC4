@@ -23,6 +23,7 @@
 
 #include "theory/sets/options.h"
 #include "theory/sets/expr_patterns.h" // ONLY included here
+#include "theory/sets/normal_form.h"
 
 #include "util/emptyset.h"
 #include "util/result.h"
@@ -729,36 +730,36 @@ bool TheorySetsPrivate::checkModel(const SettermElementsMap& settermElementsMap,
   return true;
 }
 
-Node TheorySetsPrivate::elementsToShape(Elements elements, TypeNode setType) const
-{
-  NodeManager* nm = NodeManager::currentNM();
+// Node TheorySetsPrivate::elementsToShape(Elements elements, TypeNode setType) const
+// {
+//   NodeManager* nm = NodeManager::currentNM();
 
-  if(elements.size() == 0) {
-    return nm->mkConst(EmptySet(nm->toType(setType)));
-  } else {
-    Elements::iterator it = elements.begin();
-    Node cur = SINGLETON(*it);
-    while( ++it != elements.end() ) {
-      cur = nm->mkNode(kind::UNION, cur, SINGLETON(*it));
-    }
-    return cur;
-  }
-}
-Node TheorySetsPrivate::elementsToShape(set<Node> elements, TypeNode setType) const
-{
-  NodeManager* nm = NodeManager::currentNM();
+//   if(elements.size() == 0) {
+//     return nm->mkConst(EmptySet(nm->toType(setType)));
+//   } else {
+//     Elements::iterator it = elements.begin();
+//     Node cur = SINGLETON(*it);
+//     while( ++it != elements.end() ) {
+//       cur = nm->mkNode(kind::UNION, cur, SINGLETON(*it));
+//     }
+//     return cur;
+//   }
+// }
+// Node TheorySetsPrivate::elementsToShape(set<Node> elements, TypeNode setType) const
+// {
+//   NodeManager* nm = NodeManager::currentNM();
 
-  if(elements.size() == 0) {
-    return nm->mkConst(EmptySet(nm->toType(setType)));
-  } else {
-    typeof(elements.begin()) it = elements.begin();
-    Node cur = SINGLETON(*it);
-    while( ++it != elements.end() ) {
-      cur = nm->mkNode(kind::UNION, cur, SINGLETON(*it));
-    }
-    return cur;
-  }
-}
+//   if(elements.size() == 0) {
+//     return nm->mkConst(EmptySet(nm->toType(setType)));
+//   } else {
+//     typeof(elements.begin()) it = elements.begin();
+//     Node cur = SINGLETON(*it);
+//     while( ++it != elements.end() ) {
+//       cur = nm->mkNode(kind::UNION, cur, SINGLETON(*it));
+//     }
+//     return cur;
+//   }
+// }
 
 void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
 {
@@ -843,7 +844,7 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
   // assign representatives to equivalence class
   BOOST_FOREACH( TNode setterm, settermsModEq ) {
     Elements elements = getElements(setterm, settermElementsMap);
-    Node shape = elementsToShape(elements, setterm.getType());
+    Node shape = NormalForm::elementsToSet(elements, setterm.getType());
     shape = theory::Rewriter::rewrite(shape);
     m->assertEquality(shape, setterm, true);
     m->assertRepresentative(shape);
@@ -1527,7 +1528,7 @@ Node TheorySetsPrivate::TermInfoManager::getModelValue(TNode n)
       elements_const.insert(d_theory.d_external.d_valuation.getModelValue(e));
     }
   }
-  Node v = d_theory.elementsToShape(elements_const, n.getType());
+  Node v = NormalForm::elementsToSet(elements_const, n.getType());
   d_theory.d_modelCache[n] = v;
   return v;
 }
