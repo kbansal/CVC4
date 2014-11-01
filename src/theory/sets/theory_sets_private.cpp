@@ -1378,9 +1378,19 @@ void TheorySetsPrivate::TermInfoManager::addTerm(TNode n) {
         Debug("sets-parent") << "Adding " << n << " to parent list of "
                              << n[i] << std::endl;
         d_info[n[i]]->parents->push_back(n);
+
+        typeof(d_info.begin()) ita = d_info.find(d_eqEngine->getRepresentative(n[i]));
+        Assert(ita != d_info.end());
+        CDTNodeList* l = (*ita).second->elementsNotInThisSet;
+        for(typeof(l->begin()) it = l->begin(); it != l->end(); ++it) {
+          d_theory.d_settermPropagationQueue.push_back( std::make_pair( (*it), n ) );
+        }
+        l = (*ita).second->elementsInThisSet;
+        for(typeof(l->begin()) it = l->begin(); it != l->end(); ++it) {
+          d_theory.d_settermPropagationQueue.push_back( std::make_pair( (*it), n ) );
+        }
       }
     }
-
   }
 }
 
