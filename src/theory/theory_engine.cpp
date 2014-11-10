@@ -378,6 +378,13 @@ void TheoryEngine::check(Theory::Effort effort) {
         printAssertions("theory::assertions");
       }
 
+      if(Theory::fullEffort(effort)) {
+        Trace("theory::assertions::fulleffort") << endl;
+        if (Trace.isOn("theory::assertions::fulleffort")) {
+          printAssertions("theory::assertions::fulleffort");
+        }
+      }
+        
       // Note that we've discharged all the facts
       d_factsAsserted = false;
 

@@ -768,6 +768,10 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
 
   set<Node> terms;
 
+  if(Trace.isOn("sets-assertions")) {
+    dumpAssertionsHumanified();
+  }
+
   // Compute terms appearing assertions and shared terms
   d_external.computeRelevantTerms(terms);
 
