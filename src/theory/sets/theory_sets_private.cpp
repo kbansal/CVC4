@@ -1005,19 +1005,32 @@ void TheorySetsPrivate::addToPending(Node n) {
   Debug("sets-pending") << "[sets-pending] addToPending " << n << std::endl;
   if(d_pendingEverInserted.find(n) == d_pendingEverInserted.end()) {
     if(n.getKind() == kind::MEMBER) {
-      Debug("sets-pending") << "[sets-pending] \u2514 added to member queue"
-                            << std::endl;
-      ++d_statistics.d_memberLemmas;
-      d_pending.push(n);
+      Node nRewritten = theory::Rewriter::rewrite(n);
+      if(nRewritten.isConst()) {
+        Node true_node = NodeManager::currentNM()->mkConst<bool>(true);
+        Node false_node = NodeManager::currentNM()->mkConst<bool>(false);
+        Debug("sets-pending") << "[sets-pending] \u2514 learning " << n
+                              << " with polarity " << (nRewritten == true_node ? "true" : "false")
+                              << std::endl;
+        Assert(nRewritten == true_node || nRewritten == false_node);
+        learnLiteral(n, /* polarity = */ (nRewritten == true_node), true_node);
+      } else {
+        Debug("sets-pending") << "[sets-pending] \u2514 added to member queue"
+                              << std::endl;
+        ++d_statistics.d_memberLemmas;
+        d_pending.push(n);
+        d_external.d_out->splitLemma(getLemma());
+        Assert(isComplete());
+      }
     } else {
       Debug("sets-pending") << "[sets-pending] \u2514 added to equality queue"
                             << std::endl;
       Assert(n.getKind() == kind::EQUAL);
       ++d_statistics.d_disequalityLemmas;
       d_pendingDisequal.push(n);
+      d_external.d_out->splitLemma(getLemma());
+      Assert(isComplete());
     }
-    d_external.d_out->lemma(getLemma());
-    Assert(isComplete());
   }
 }
 

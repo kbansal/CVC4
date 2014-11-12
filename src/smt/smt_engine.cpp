@@ -3967,6 +3967,7 @@ void SmtEngine::checkModel(bool hardFailure) {
     {
       hash_map<Node, Node, NodeHashFunction> cache;
       n = d_private->expandDefinitions(n, cache);
+      n = Rewriter::rewrite(n);
     }
     Notice() << "SmtEngine::checkModel(): -- expands to " << n << endl;
 
