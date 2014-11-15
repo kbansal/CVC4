@@ -1724,7 +1724,7 @@ postfixTerm[CVC4::Expr& f]
                                MK_CONST(AscriptionType(dtc.getSpecializedConstructorType(t))), f.getOperator() ));
           v.insert(v.end(), f.begin(), f.end());
           f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, v);
-        } else if(f.getKind() == CVC4::kind::EMPTYSET && t.isSet()) {
+        } else if(f.getKind() == CVC4::kind::CONSTANTSET && t.isSet()) {
           f = MK_CONST(CVC4::EmptySet(t));
         } else {
           if(f.getType() != t) {

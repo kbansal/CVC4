@@ -165,9 +165,23 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << n.getConst<Datatype>().getName();
       break;
 
-    case kind::EMPTYSET:
-      out << "{} :: " << n.getConst<EmptySet>().getType();
+    case kind::CONSTANTSET: {
+      ConstantSet cs = n.getConst<ConstantSet>();
+      if(cs.empty()) {
+	out << "{} :: " << cs.getType();
+      } else {
+	out << "{";
+	const std::set<Node>* members = cs.getMembers();
+	for(typeof(members->begin()) it = members->begin();
+	    it != members->end(); ++it) {
+	  if(it != members->begin()) {
+	    out << ", ";
+	  }
+	  out << (*it);
+	}
+      }
       break;
+    }
 
     case kind::STORE_ALL: {
       const ArrayStoreAll& asa = n.getConst<ArrayStoreAll>();

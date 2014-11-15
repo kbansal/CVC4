@@ -1020,7 +1020,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
                              MK_CONST(AscriptionType(dtc.getSpecializedConstructorType(type))), f.getOperator() ));
         v.insert(v.end(), f.begin(), f.end());
         expr = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, v);
-      } else if(f.getKind() == CVC4::kind::EMPTYSET) {
+      } else if(f.getKind() == CVC4::kind::CONSTANTSET) {
         Debug("parser") << "Empty set encountered: " << f << " "
                           << f2 << " " << type <<  std::endl;
         expr = MK_CONST( ::CVC4::EmptySet(type) );

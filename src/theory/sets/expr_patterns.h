@@ -44,9 +44,9 @@ static Node MEMBER(TNode a, TNode b) {
   return NodeManager::currentNM()->mkNode(kind::MEMBER, a, b);
 }
 
-static Node SINGLETON(TNode a) {
-  return NodeManager::currentNM()->mkNode(kind::SINGLETON, a);
-}
+// static Node SINGLETON(TNode a) {
+//   return NodeManager::currentNM()->mkNode(kind::SINGLETON, a);
+// }
 
 static Node EQUAL(TNode a, TNode b) {
   return NodeManager::currentNM()->mkNode(kind::EQUAL, a, b);

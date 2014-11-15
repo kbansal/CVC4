@@ -135,9 +135,14 @@ public:
     }
 
     if(n.getMetaKind() == metakind::CONSTANT) {
-      if(n.getKind() == kind::EMPTYSET) {
-        Type type = from->exportType(n.getConst< ::CVC4::EmptySet >().getType(), to, vmap);
-        return to->mkConst(::CVC4::EmptySet(type));
+      if(n.getKind() == kind::CONSTANTSET) {
+        Type type = from->exportType(n.getConst< ::CVC4::ConstantSet >().getType(), to, vmap);
+	if( ! n.getConst< ::CVC4::ConstantSet >().empty() ) {
+	  // FIXME:
+	  throw ExportUnsupportedException
+	    ("export of non-empty sets in currently unsupported");
+	}
+        return to->mkConst(::CVC4::ConstantSet(type));
       }
       return exportConstant(n, NodeManager::fromExprManager(to), vmap);
     } else if(n.isVar()) {

@@ -67,7 +67,7 @@ struct SetsBinaryOperatorTypeRule {
     Assert(n.getKind() == kind::UNION ||
            n.getKind() == kind::INTERSECTION ||
            n.getKind() == kind::SETMINUS);
-    return n[0].isConst() && n[1].isConst();
+    return false;
   }
 };/* struct SetUnionTypeRule */
 
@@ -116,19 +116,30 @@ struct SingletonTypeRule {
 
   inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
     Assert(n.getKind() == kind::SINGLETON);
-    return n[0].isConst();
+    return false;
   }
 };/* struct SingletonTypeRule */
 
-struct EmptySetTypeRule {
+/* struct EmptySetTypeRule { */
+/*   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) */
+/*     throw (TypeCheckingExceptionPrivate, AssertionException) { */
+/*     Assert(n.getKind() == kind::EMPTYSET); */
+/*     EmptySet emptySet = n.getConst<EmptySet>(); */
+/*     Type setType = emptySet.getType(); */
+/*     return TypeNode::fromType(setType); */
+/*   } */
+/* };/\* struct EmptySetTypeRule *\/ */
+
+
+struct ConstantSetTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw (TypeCheckingExceptionPrivate, AssertionException) {
-    Assert(n.getKind() == kind::EMPTYSET);
-    EmptySet emptySet = n.getConst<EmptySet>();
-    Type setType = emptySet.getType();
+    Assert(n.getKind() == kind::CONSTANTSET);
+    ConstantSet constantSet = n.getConst<ConstantSet>();
+    Type setType = constantSet.getType();
     return TypeNode::fromType(setType);
   }
-};/* struct EmptySetTypeRule */
+};/* struct ConstantSetTypeRule */
 
 struct InsertTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
@@ -154,7 +165,7 @@ struct InsertTypeRule {
 
   inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
     Assert(n.getKind() == kind::INSERT);
-    return n[0].isConst() && n[1].isConst();
+    return false;
   }
 };/* struct InsertTypeRule */
 
@@ -172,7 +183,7 @@ struct SetsProperties {
 
   inline static Node mkGroundTerm(TypeNode type) {
     Assert(type.isSet());
-    return NodeManager::currentNM()->mkConst(EmptySet(type.toType()));
+    return NodeManager::currentNM()->mkConst(ConstantSet(type.toType()));
   }
 };/* struct SetsProperties */
 

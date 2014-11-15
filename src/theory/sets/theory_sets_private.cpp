@@ -185,7 +185,7 @@ void TheorySetsPrivate::assertMemebership(TNode fact, TNode reason, bool learnt)
    * It is sufficient to do emptyset propagation outside the loop as
    * constant term is guaranteed to be class representative.
    */
-  if(polarity && S.getKind() == kind::EMPTYSET) {
+  if(polarity && S.getKind() == kind::CONSTANTSET && S.getConst<ConstantSet>().empty()) {
     Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
                        << std::endl;
     learnLiteral(cur_atom, false, cur_atom);
@@ -667,7 +667,7 @@ bool TheorySetsPrivate::checkModel(const SettermElementsMap& settermElementsMap,
 
   const Elements emptySetOfElements;
   const Elements& saved =
-    d_equalityEngine.getRepresentative(S).getKind() == kind::EMPTYSET ||
+    d_equalityEngine.getRepresentative(S).getKind() == kind::CONSTANTSET ||
     settermElementsMap.find(d_equalityEngine.getRepresentative(S)) == settermElementsMap.end() ?
     emptySetOfElements :
     settermElementsMap.find(d_equalityEngine.getRepresentative(S))->second;
@@ -680,13 +680,13 @@ bool TheorySetsPrivate::checkModel(const SettermElementsMap& settermElementsMap,
     Elements cur;
 
     const Elements& left =
-      d_equalityEngine.getRepresentative(S[0]).getKind() == kind::EMPTYSET ||
+      d_equalityEngine.getRepresentative(S[0]).getKind() == kind::CONSTANTSET ||
       settermElementsMap.find(d_equalityEngine.getRepresentative(S[0])) == settermElementsMap.end() ?
       emptySetOfElements :
       settermElementsMap.find(d_equalityEngine.getRepresentative(S[0]))->second;
 
     const Elements&  right =
-      d_equalityEngine.getRepresentative(S[1]).getKind() == kind::EMPTYSET ||
+      d_equalityEngine.getRepresentative(S[1]).getKind() == kind::CONSTANTSET ||
       settermElementsMap.find(d_equalityEngine.getRepresentative(S[1])) == settermElementsMap.end() ?
       emptySetOfElements :
       settermElementsMap.find(d_equalityEngine.getRepresentative(S[1]))->second;
@@ -1417,7 +1417,7 @@ void TheorySetsPrivate::TermInfoManager::pushToSettermPropagationQueue
   Node cur_atom = MEMBER(x, S);
 
   // propagation : empty set
-  if(polarity && S.getKind() == kind::EMPTYSET) {
+  if(polarity && S.getKind() == kind::CONSTANTSET && S.getConst<ConstantSet>().empty()) {
     Debug("sets-prop") << "[sets-prop]  something in empty set? conflict."
                        << std::endl;
     d_theory.learnLiteral(cur_atom, false, cur_atom);

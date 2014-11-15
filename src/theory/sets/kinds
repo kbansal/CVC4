@@ -15,11 +15,11 @@ properties parametric
 properties check propagate
 
 # constants
-constant EMPTYSET \
-    ::CVC4::EmptySet \
-    ::CVC4::EmptySetHashFunction \
+constant CONSTANTSET \
+    ::CVC4::ConstantSet \
+    ::CVC4::ConstantSetHashFunction \
     "util/emptyset.h" \
-    "the empty set constant; payload is an instance of the CVC4::EmptySet class"
+    "the constant set"
 
 # the type
 operator SET_TYPE 1 "set type, takes as parameter the type of the elements"
@@ -49,7 +49,7 @@ typerule SETMINUS       ::CVC4::theory::sets::SetsBinaryOperatorTypeRule
 typerule SUBSET         ::CVC4::theory::sets::SubsetTypeRule
 typerule MEMBER         ::CVC4::theory::sets::MemberTypeRule
 typerule SINGLETON      ::CVC4::theory::sets::SingletonTypeRule
-typerule EMPTYSET       ::CVC4::theory::sets::EmptySetTypeRule
+typerule CONSTANTSET    ::CVC4::theory::sets::ConstantSetTypeRule
 typerule INSERT         ::CVC4::theory::sets::InsertTypeRule
 
 construle UNION         ::CVC4::theory::sets::SetsBinaryOperatorTypeRule

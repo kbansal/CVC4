@@ -22,62 +22,71 @@
 namespace CVC4 {
   // messy; Expr needs EmptySet (because it's the payload of a
   // CONSTANT-kinded expression), and EmptySet needs Expr.
-  class CVC4_PUBLIC EmptySet;
+  class CVC4_PUBLIC ConstantSet;
 }/* CVC4 namespace */
 
 #include "expr/expr.h"
 #include "expr/type.h"
+#include "util/finiteset.h"
 #include <iostream>
 
 namespace CVC4 {
 
-class CVC4_PUBLIC EmptySet {
+class CVC4_PUBLIC ConstantSetException : public Exception {
+public:
+  ConstantSetException(std::string s) throw() : Exception() {
+    setMessage(s);
+  }
+};
+
+typedef ConstantSet EmptySet;
+
+class ConstantSet {
 
   const SetType d_type;
 
-  EmptySet() { }
+  std::set<NodeTemplate<true> >* p_elements;
+
+  ConstantSet() { }
+
 public:
 
-  /**
-   * Constructs an emptyset of the specified type. Note that the argument
-   * is the type of the set itself, NOT the type of the elements.
-   */
-  EmptySet(SetType setType):d_type(setType) { }
+  /** Empty set */
+  ConstantSet(SetType setType)
+    throw (ConstantSetException);
 
+  ConstantSet(SetType setType, const std::set<Expr>& v)
+    throw (ConstantSetException);
 
-  ~EmptySet() throw() {
-  }
+  ~ConstantSet() throw();
 
   SetType getType() const { return d_type; }
+  size_t getHash() const;
 
-  bool operator==(const EmptySet& es) const throw() {
-    return d_type == es.d_type;
-  }
-  bool operator!=(const EmptySet& es) const throw() {
-    return !(*this == es);
-  }
+  bool operator==(const ConstantSet& es) const throw();
+  bool operator!=(const ConstantSet& es) const throw();
+  bool operator<(const ConstantSet& es) const throw();
+  bool operator<=(const ConstantSet& es) const throw();
+  bool operator>(const ConstantSet& es) const throw();
+  bool operator>=(const ConstantSet& es) const throw();
 
-  bool operator<(const EmptySet& es) const throw() {
-    return d_type < es.d_type;
-  }
-  bool operator<=(const EmptySet& es) const throw() {
-    return d_type <= es.d_type;
-  }
-  bool operator>(const EmptySet& es) const throw() {
-    return !(*this <= es);
-  }
-  bool operator>=(const EmptySet& es) const throw() {
-    return !(*this < es);
-  }
+  bool empty() const;
+  ConstantSet setunion(const ConstantSet& es) const;
+  ConstantSet setintersection(const ConstantSet& es) const;
+  ConstantSet setminus(const ConstantSet& es) const;
+  bool member(Expr e) const;
 
-};/* class EmptySet */
+  bool member(NodeTemplate<false>* n) const;
+  const std::set<NodeTemplate<true> >* getMembers() const;
 
-std::ostream& operator<<(std::ostream& out, const EmptySet& es) CVC4_PUBLIC;
+};/* ConstantSet */
 
-struct CVC4_PUBLIC EmptySetHashFunction {
-  inline size_t operator()(const EmptySet& es) const {
-    return TypeHashFunction()(es.getType());
+struct CVC4_PUBLIC ConstantSetHashFunction {
+  size_t operator()(const ConstantSet& es) const {
+    return es.getHash();
   }
 };/* struct EmptySetHashFunction */
+
+std::ostream& operator<<(std::ostream& out, const ConstantSet& es) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
