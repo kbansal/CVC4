@@ -29,6 +29,7 @@ ConstantSet::ConstantSet(SetType setType)
   throw (ConstantSetException):
   d_type(setType)
   , p_elements(new Elements)
+  , d_hash(TypeHashFunction()(setType))
 {
 }
 
@@ -37,40 +38,37 @@ ConstantSet::ConstantSet(SetType setType, const std::set<Expr>& elements)
   throw (ConstantSetException):
   d_type(setType)
   , p_elements(new Elements(elements.begin(), elements.end()))
+  , d_hash(TypeHashFunction()(setType))
 {
   typeof(elements.begin()) it = elements.begin();
   while( ++it != elements.end() ) {
     if( !(*it).isConst() ) {
       throw ConstantSetException("non-constant elements not allowed");
     }
+    d_hash ^= (*it).getId() + 0x9e3779b9 + (d_hash << 6) + (d_hash >> 2);
   }
 }
 
 ConstantSet::~ConstantSet() throw() {
-  delete p_elements;
+  // delete p_elements;
 }
 
 size_t ConstantSet::getHash() const {
-  size_t h = 0;
-  for(typeof(p_elements->begin()) it = p_elements->begin();
-      it != p_elements->end(); ++it) {
-    h ^= (*it).getId() + 0x9e3779b9 + (h << 6) + (h >> 2);
-  }
-  return h;
+  return d_hash;
 }
 
 
 bool ConstantSet::operator==(const ConstantSet& es) const throw() {
-  return d_type == es.d_type && p_elements == es.p_elements;
+  return d_type == es.d_type && *(p_elements) == *(es.p_elements);
 }
 bool ConstantSet::operator!=(const ConstantSet& es) const throw() {
   return !(*this == es);
 }
 bool ConstantSet::operator<(const ConstantSet& es) const throw() {
-  return d_type < es.d_type || (d_type == es.d_type && p_elements < es.p_elements);
+  return d_type < es.d_type || (d_type == es.d_type && *(p_elements) < *(es.p_elements));
 }
 bool ConstantSet::operator<=(const ConstantSet& es) const throw() {
-  return d_type < es.d_type || (d_type == es.d_type && p_elements <= es.p_elements);
+  return d_type < es.d_type || (d_type == es.d_type && *(p_elements) <= *(es.p_elements));
 }
 bool ConstantSet::operator>(const ConstantSet& es) const throw() {
   return !(*this <= es);
@@ -81,7 +79,7 @@ bool ConstantSet::operator>=(const ConstantSet& es) const throw() {
 
 
 bool ConstantSet::empty() const {
-  return p_elements->size();
+  return p_elements->size() == 0;
 }
 
 ConstantSet ConstantSet::setunion(const ConstantSet& es) const {

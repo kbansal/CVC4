@@ -115,9 +115,19 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
 	return RewriteResponse(REWRITE_DONE, node[0]);
       } else { Unhandled(); }
 
+    } else if(node[0] == node[1]) {
+
+      if(kind == kind::UNION || kind == kind::INTERSECTION) {
+	return RewriteResponse(REWRITE_DONE, node[0]);
+      } else if(kind == kind::SETMINUS) {
+	return RewriteResponse(REWRITE_DONE, nm->mkConst(ConstantSet(node.getType().toType())));
+      } else { Unhandled(); }
+
     } else if(node[0] > node[1]) {
 
-      return RewriteResponse(REWRITE_DONE, nm->mkNode(kind, node[1], node[0]));
+      if(kind == kind::UNION || kind == kind::INTERSECTION) {
+	return RewriteResponse(REWRITE_DONE, nm->mkNode(kind, node[1], node[0]));
+      }
 
     }
 
@@ -130,12 +140,6 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
       return RewriteResponse(REWRITE_DONE, nm->mkConst(cs));
     }
 
-  } else if(kind == kind::CONSTANTSET) {
-
-    // Do nothing
-
-  } else  {
-    Unhandled();
   }
 
   return RewriteResponse(REWRITE_DONE, node);

@@ -810,12 +810,14 @@ void TheoryEngineModelBuilder::buildModel(Model* m, bool fullModel)
         static int repCheckInstance = 0;
         ++repCheckInstance;
 
+	Node tmValue = tm->getValue(n);
+
         Debug("check-model::rep-checking")
           << "( " << repCheckInstance <<") "
           << "n: " << n << endl
           << "getValue(n): " << tm->getValue(n) << endl
           << "rep: " << rep << endl;
-        Assert(tm->getValue(*eqc_i) == rep, "run with -d check-model::rep-checking for details");
+        Assert(tmValue == rep, "run with -d check-model::rep-checking for details");
       }
     }
   }

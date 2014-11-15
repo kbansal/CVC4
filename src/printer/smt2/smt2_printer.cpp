@@ -244,17 +244,18 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
 
     case kind::CONSTANTSET: {
       ConstantSet cs = n.getConst<ConstantSet>();
-      if( !cs.empty() ) {
-	out << "(insert ";
-	const std::set<Node>* members = cs.getMembers();
-	for(typeof(members->begin()) it = members->begin();
-	    it != members->end(); ++it) {
-	  out << (*it);
+      const std::set<Node>* members = cs.getMembers();
+      if( members->size() == 0 ) {
+	out << "(as emptyset " << n.getConst<ConstantSet>().getType() << ")";
+      } else if(members->size() == 1) {
+	out << "(singleton " << *(members->begin()) << ')';
+      } else {
+	typeof(members->begin()) first = members->begin();
+	typeof(members->begin()) it = first;
+	for(++it; it != members->end(); ++it) {
+	  out << (*it) << " ";
 	}
-      }
-      out << "(as emptyset " << n.getConst<ConstantSet>().getType() << ")";
-      if( !cs.empty() ) {
-	out << ")";
+	out << "(singleton " << (*first) << "))";
       }
       break;
     }

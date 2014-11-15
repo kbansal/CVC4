@@ -47,6 +47,8 @@ class ConstantSet {
 
   std::set<NodeTemplate<true> >* p_elements;
 
+  size_t d_hash;
+
   ConstantSet() { }
 
 public:
