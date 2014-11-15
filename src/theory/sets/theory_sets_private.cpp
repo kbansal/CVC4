@@ -1225,6 +1225,11 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
   Debug("sets") << "TheorySetsPrivate::preRegisterTerm(" << node << ")"
                 << std::endl;
 
+  if(node.getKind() == kind::CONSTANTSET &&
+     node.getConst<ConstantSet>.empty() == false) {
+    Assert(false, "we can't handle non-empty constant sets for now. they are only for final model-building"
+  }
+
   switch(node.getKind()) {
   case kind::EQUAL:
     // TODO: what's the point of this

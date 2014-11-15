@@ -27,7 +27,6 @@ namespace CVC4 {
 
 #include "expr/expr.h"
 #include "expr/type.h"
-#include "util/finiteset.h"
 #include <iostream>
 
 namespace CVC4 {

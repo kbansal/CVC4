@@ -131,16 +131,16 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
 
     }
 
-  } else if(kind == kind::SINGLETON) {
+  } // else if(kind == kind::SINGLETON) {
 
-    if(node[0].isConst()) {
-      std::set<Expr> s;
-      s.insert(node[0].toExpr());
-      ConstantSet cs(node.getType().toType(), s);
-      return RewriteResponse(REWRITE_DONE, nm->mkConst(cs));
-    }
+  //   if(node[0].isConst()) {
+  //     std::set<Expr> s;
+  //     s.insert(node[0].toExpr());
+  //     ConstantSet cs(node.getType().toType(), s);
+  //     return RewriteResponse(REWRITE_DONE, nm->mkConst(cs));
+  //   }
 
-  }
+  // }
 
   return RewriteResponse(REWRITE_DONE, node);
   // This default implementation
