@@ -28,6 +28,10 @@
 #include <set>
 #include <utility>
 
+#ifdef PORTFOLIO_BUILD
+#  include <boost/thread/thread.hpp>
+#endif
+
 namespace CVC4 {
 
 template <class T, class U>
@@ -156,6 +160,9 @@ CVC4ostream& CVC4ostream::operator<<(T const& t) {
   if(d_os != NULL) {
     if(d_firstColumn) {
       d_firstColumn = false;
+#ifdef PORTFOLIO_BUILD
+      d_os = &(*d_os << "[thread " << (boost::thread::id)boost::this_thread::get_id()) << "] ";
+#endif
       long indent = d_os->iword(s_indentIosIndex);
       for(long i = 0; i < indent; ++i) {
         d_os = &(*d_os << s_tab);
