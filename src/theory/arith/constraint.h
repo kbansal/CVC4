@@ -1048,7 +1048,7 @@ private:
   const context::Context * const d_satContext;
 
   RaiseConflict d_raiseConflict;
-
+  UnmarkLiteralCallBack d_unmarkLit;
 
   const Rational d_one;
   const Rational d_negOne;
@@ -1061,7 +1061,8 @@ public:
                       context::Context* userContext,
                       const ArithVariables& variables,
                       ArithCongruenceManager& dm,
-                      RaiseConflict conflictCallBack);
+                      RaiseConflict conflictCallBack,
+                      UnmarkLiteralCallBack unmarkLit);
 
   ~ConstraintDatabase();
 
