@@ -464,6 +464,8 @@ private:
       Assert(constraint->d_crid != ConstraintRuleIdSentinel);
       constraint->d_crid = ConstraintRuleIdSentinel;
       
+      constraint->removeOccurence();
+      
       PROOF(if(crp->d_farkasCoefficients != RationalVectorCPSentinel){
               delete crp->d_farkasCoefficients;
             });
@@ -476,6 +478,7 @@ private:
       ConstraintP constraint = *p;
       Assert(constraint->d_canBePropagated);
       constraint->d_canBePropagated = false;
+      constraint->removeOccurence();
     }
   };
 
@@ -487,6 +490,7 @@ private:
       constraint->d_assertionOrder = AssertionOrderSentinel;
       constraint->d_witness = TNode::null();
       Assert(!constraint->assertedToTheTheory());
+      constraint->removeOccurence();
     }
   };
 
@@ -496,6 +500,7 @@ private:
       ConstraintP constraint = *p;
       Assert(constraint->d_split);
       constraint->d_split = false;
+      constraint->removeOccurence();
     }
   };
 
@@ -522,6 +527,8 @@ private:
   /** Returns coefficients for the proofs for farkas cancellation. */
   static std::pair<int, int> unateFarkasSigns(ConstraintCP a, ConstraintCP b);
 
+  void addOccurence();
+  void removeOccurence();
 
 public:
 
@@ -1037,7 +1044,7 @@ private:
   static bool emptyDatabase(const std::vector<PerVariableDatabase>& vec);
 
   /** Map from nodes to arithvars. */
-  const ArithVariables& d_avariables;
+  ArithVariables& d_avariables;
 
   const ArithVariables& getArithVariables() const{
     return d_avariables;
@@ -1059,7 +1066,7 @@ public:
 
   ConstraintDatabase( context::Context* satContext,
                       context::Context* userContext,
-                      const ArithVariables& variables,
+                      ArithVariables& variables,
                       ArithCongruenceManager& dm,
                       RaiseConflict conflictCallBack,
                       UnmarkLiteralCallBack unmarkLit);
@@ -1175,7 +1182,11 @@ public:
   
   bool hasAnyConstraints(ArithVar v) const;
 
+  
 private:
+  void addOccurence(ArithVar v);
+  void removeOccurence(ArithVar v);
+
   /** returns true if cons is now in conflict. */
   bool handleUnateProp(ConstraintP ant, ConstraintP cons);
 
