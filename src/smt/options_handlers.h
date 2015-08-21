@@ -324,6 +324,10 @@ inline void proofEnabledBuild(std::string option, bool value, SmtEngine* smt) th
     size_t exprDepthSetting = expr::ExprSetDepth::getDepth(__channel_get); \
     bool printtypesSetting = expr::ExprPrintTypes::getPrintTypes(__channel_get); \
     OutputLanguage languageSetting = expr::ExprSetLanguage::getLanguage(__channel_get); \
+    if ((__channel_get).rdbuf() != std::cout.rdbuf() && \
+        (__channel_get).rdbuf() != std::cerr.rdbuf() ) { \
+      delete &(__channel_get); \
+    } \
     __channel_set; \
     __channel_get << Expr::dag(dagSetting); \
     __channel_get << Expr::setdepth(exprDepthSetting); \
