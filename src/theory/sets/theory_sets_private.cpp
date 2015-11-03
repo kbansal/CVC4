@@ -100,9 +100,11 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     return;
   }
 
+  processCard(level);
+  
   // if we are here, there is no conflict and we are complete
   if(Debug.isOn("sets-scrutinize")) { d_scrutinize->postCheckInvariants(); }
-
+  
   return;
 }/* TheorySetsPrivate::check() */
 
@@ -1105,7 +1107,9 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_modelCache(c),
   d_ccg_i(c),
   d_ccg_j(c),
-  d_scrutinize(NULL)
+  d_scrutinize(NULL),
+  d_cardTerms(c),
+  d_processedCard()
 {
   d_termInfoManager = new TermInfoManager(*this, c, &d_equalityEngine);
 
@@ -1244,6 +1248,9 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
   case kind::MEMBER:
     // TODO: what's the point of this
     d_equalityEngine.addTriggerPredicate(node);
+    break;
+  case kind::CARD:
+    registerCard(node);
     break;
   default:
     d_termInfoManager->addTerm(node);
@@ -1576,6 +1583,101 @@ Node TheorySetsPrivate::TermInfoManager::getModelValue(TNode n)
   return v;
 }
 
+
+void TheorySetsPrivate::registerCard(TNode node) {
+  Trace("sets-card") << "[sets-card] registerCard( " << node << ")" << std::endl;
+  Kind k = node[0].getKind();
+
+  NodeManager* nm = NodeManager::currentNM();
+      
+  d_external.d_out->lemma(nm->mkNode(kind::GEQ,
+                                     node,
+                                     nm->mkConst(Rational(0))));
+
+    
+  if(k == kind::SINGLETON ||
+     k == kind::UNION ||
+     k == kind::SETMINUS ||
+     k == kind::INTERSECTION) {
+    Trace("sets-card") << "[sets-card] \u2514 inserted for processing" << std::endl;
+    d_cardTerms.insert(node);
+  }
+}
+
+void TheorySetsPrivate::processCard(Theory::Effort level) {
+  if(level != Theory::EFFORT_FULL) return;
+  Trace("sets-card") << "[sets-card] processCard( " << level << ")" << std::endl;
+  for(typeof(d_cardTerms.begin()) it = d_cardTerms.begin();
+      it != d_cardTerms.end(); ++it) {
+
+    Node n = (*it);
+
+    if(n[0].getKind() == kind::SINGLETON) {
+      Unhandled();
+      continue;
+    }
+
+    Node s = min(n[0][0], n[0][1]);
+    Node t = max(n[0][0], n[0][1]);
+    bool isUnion = n[0].getKind() == kind::UNION;
+
+    typeof(d_processedCard.begin()) processedInfo = d_processedCard.find(make_pair(s, t));
+
+    if(processedInfo == d_processedCard.end()) {
+
+      NodeManager* nm = NodeManager::currentNM();
+      
+      Node card_s = nm->mkNode(kind::CARD, s);
+      Node card_t = nm->mkNode(kind::CARD, t);
+      Node card_sNt = nm->mkNode(kind::CARD, nm->mkNode(kind::INTERSECTION, s, t));
+      Node card_sMt = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, s, t));
+      Node card_tMs = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, t, s));
+
+      Node lem;
+      
+      // for s
+      lem = nm->mkNode(kind::EQUAL,
+                      card_s,
+                      nm->mkNode(kind::PLUS, card_sNt, card_sMt));
+      d_external.d_out->lemma(lem);
+
+      // for t
+      lem = nm->mkNode(kind::EQUAL,
+                      card_t,
+                      nm->mkNode(kind::PLUS, card_sNt, card_tMs));
+      d_external.d_out->lemma(lem);
+
+      // for union
+      if(isUnion) {
+        lem = nm->mkNode(kind::EQUAL,
+                         n,     // card(s union t)
+                         nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
+        d_external.d_out->lemma(lem);
+      }
+      
+      d_processedCard.insert(make_pair(make_pair(s, t), isUnion));
+
+    } else if(isUnion && processedInfo->second == false) {
+      
+      NodeManager* nm = NodeManager::currentNM();
+
+      Node card_s = nm->mkNode(kind::CARD, s);
+      Node card_t = nm->mkNode(kind::CARD, t);
+      Node card_sNt = nm->mkNode(kind::CARD, nm->mkNode(kind::INTERSECTION, s, t));
+      Node card_sMt = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, s, t));
+      Node card_tMs = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, t, s));
+
+      Node lem = nm->mkNode(kind::EQUAL,
+                            n,     // card(s union t)
+                            nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
+      d_external.d_out->lemma(lem);
+
+      processedInfo->second = true;
+    }
+    
+  }
+}
+  
 }/* CVC4::theory::sets namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

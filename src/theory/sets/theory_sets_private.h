@@ -199,6 +199,14 @@ private:
   friend class TheorySetsScrutinize;
   TheorySetsScrutinize* d_scrutinize;
   void dumpAssertionsHumanified() const;  /** do some formatting to make them more readable */
+
+
+
+  /***** Cardinality handling *****/
+  CDNodeSet d_cardTerms;
+  std::map<std::pair<Node, Node>, bool> d_processedCard;
+  void registerCard(TNode);
+  void processCard(Theory::Effort level);
 };/* class TheorySetsPrivate */
 
 
