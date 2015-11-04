@@ -1586,21 +1586,28 @@ Node TheorySetsPrivate::TermInfoManager::getModelValue(TNode n)
 
 void TheorySetsPrivate::registerCard(TNode node) {
   Trace("sets-card") << "[sets-card] registerCard( " << node << ")" << std::endl;
+
   Kind k = node[0].getKind();
 
   NodeManager* nm = NodeManager::currentNM();
       
-  d_external.d_out->lemma(nm->mkNode(kind::GEQ,
-                                     node,
-                                     nm->mkConst(Rational(0))));
-
+  if(k == kind::SINGLETON) {
+    d_external.d_out->lemma(nm->mkNode(kind::GEQ,
+                                       node,
+                                       nm->mkConst(Rational(1))));
+  } else {
     
-  if(k == kind::SINGLETON ||
-     k == kind::UNION ||
-     k == kind::SETMINUS ||
-     k == kind::INTERSECTION) {
-    Trace("sets-card") << "[sets-card] \u2514 inserted for processing" << std::endl;
-    d_cardTerms.insert(node);
+    d_external.d_out->lemma(nm->mkNode(kind::GEQ,
+                                       node,
+                                       nm->mkConst(Rational(0))));
+    if(k == kind::UNION ||
+       k == kind::SETMINUS ||
+       k == kind::INTERSECTION) {
+      Trace("sets-card") << "[sets-card] \u2514 inserted for processing" << std::endl;
+      
+      d_cardTerms.insert(node);
+    }
+
   }
 }
 
@@ -1611,11 +1618,6 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
       it != d_cardTerms.end(); ++it) {
 
     Node n = (*it);
-
-    if(n[0].getKind() == kind::SINGLETON) {
-      Unhandled();
-      continue;
-    }
 
     Node s = min(n[0][0], n[0][1]);
     Node t = max(n[0][0], n[0][1]);
@@ -1676,6 +1678,17 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
     }
     
   }
+
+  // **** Building Graph, introducing extra stuff ****
+
+  // Let (t_1, t_2) be pairs of nodes in the graph.
+
+  // Then, we add a node and label for each node.
+
+  // Add disequality edges between adjacent nodes.
+
+  // Add equality edges between asserted equalities.
+
 }
   
 }/* CVC4::theory::sets namespace */
