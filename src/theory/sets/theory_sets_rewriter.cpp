@@ -176,6 +176,13 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
     break;
   }//kind::UNION
 
+  case kind::CARD: {
+    if(node[0].isConst()) {
+      std::set<Node> elements = NormalForm::getElementsFromNormalConstant(node[0]);
+      return RewriteResponse(REWRITE_DONE, nm->mkConst(Rational(elements.size())));
+    }
+  }
+
   default:
     break;
   }//switch(node.getKind())

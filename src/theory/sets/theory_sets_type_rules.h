@@ -151,7 +151,7 @@ struct CardTypeRule {
 
   inline static bool computeIsConst(NodeManager* nodeManager, TNode n) {
     Assert(n.getKind() == kind::CARD);
-    return n[0].isConst();
+    return false;
   }
 };/* struct CardTypeRule */
 

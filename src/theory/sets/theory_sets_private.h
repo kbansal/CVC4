@@ -204,7 +204,10 @@ private:
 
   /***** Cardinality handling *****/
   CDNodeSet d_cardTerms;
-  std::map<std::pair<Node, Node>, bool> d_processedCard;
+  std::set<TypeNode> d_typesAdded;
+  std::set<Node> d_processedCardTerms;
+  std::map<std::pair<Node, Node>, bool> d_processedCardPairs;
+  CDNodeSet d_cardLowerLemmaCache;
   void registerCard(TNode);
   void processCard(Theory::Effort level);
 };/* class TheorySetsPrivate */
