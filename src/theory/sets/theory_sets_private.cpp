@@ -1448,7 +1448,12 @@ void TheorySetsPrivate::TermInfoManager::addTerm(TNode n) {
       if(d_terms.contains(n[i])) {
         Debug("sets-parent") << "Adding " << n << " to parent list of "
                              << n[i] << std::endl;
+
+        // introduce cardinality of this set if a child's cardinality appears
         d_info[n[i]]->parents->push_back(n);
+        if(d_theory.d_cardTerms.find(CARD(n[i])) != d_theory.d_cardTerms.end()) {
+          d_theory.registerCard(CARD(n));
+        }
 
         typeof(d_info.begin()) ita = d_info.find(d_eqEngine->getRepresentative(n[i]));
         Assert(ita != d_info.end());
@@ -1625,7 +1630,17 @@ Node TheorySetsPrivate::TermInfoManager::getModelValue(TNode n)
 
 void TheorySetsPrivate::registerCard(TNode node) {
   Trace("sets-card") << "[sets-card] registerCard( " << node << ")" << std::endl;
-  d_cardTerms.insert(node);
+  if(d_cardTerms.find(node) == d_cardTerms.end()) {
+    d_cardTerms.insert(node);
+
+    // introduce cardinality of any set-term containing this term
+    NodeManager* nm = NodeManager::currentNM();
+    const CDTNodeList* parentList = d_termInfoManager->getParents(node[0]);
+    for(typeof(parentList->begin()) it = parentList->begin();
+        it != parentList->end(); ++it) {
+      registerCard(nm->mkNode(kind::CARD, *it));
+    }
+  }
 }
 
 const std::set<TNode> getReachable(map<TNode, set<TNode> >& edges, TNode node) {
