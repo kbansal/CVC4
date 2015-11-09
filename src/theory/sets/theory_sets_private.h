@@ -210,6 +210,14 @@ private:
   CDNodeSet d_cardLowerLemmaCache;
   void registerCard(TNode);
   void processCard(Theory::Effort level);
+
+  /* Graph handling */
+  std::map<TNode, std::set<TNode> > edgesFd;
+  std::map<TNode, std::set<TNode> > edgesBk;
+  std::set< std::pair<TNode, TNode> > disjoint;
+  std::set<TNode> leaves;
+  void buildGraph();
+
 };/* class TheorySetsPrivate */
 
 

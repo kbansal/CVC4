@@ -36,6 +36,9 @@ namespace sets {
 
 const char* element_of_str = " \u2208 ";
 
+// Declaration of functions defined later in this CPP file
+const std::set<TNode> getLeaves(map<TNode, set<TNode> >& edges, TNode node);
+
 /**************************** TheorySetsPrivate *****************************/
 /**************************** TheorySetsPrivate *****************************/
 /**************************** TheorySetsPrivate *****************************/
@@ -849,16 +852,65 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
     }
   }
 
-  BOOST_FOREACH( SettermElementsMap::value_type &it, settermElementsMap ) {
-    BOOST_FOREACH( TNode element, it.second /* elements */ ) {
-      Debug("sets-model-details") << "[sets-model-details]  >   " <<
-        (it.first /* setterm */) << ": " << element << std::endl;
+  if(Debug.isOn("sets-model-details")) {
+    BOOST_FOREACH( SettermElementsMap::value_type &it, settermElementsMap ) {
+      BOOST_FOREACH( TNode element, it.second /* elements */ ) {
+        Debug("sets-model-details") << "[sets-model-details]  >   " <<
+          (it.first /* setterm */) << ": " << element << std::endl;
+      }
     }
+  }
+
+  // build graph, and create sufficient number of skolems
+  NodeManager* nm = NodeManager::currentNM();
+  buildGraph();
+  std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> slackElements;
+  BOOST_FOREACH( TNode setterm, leaves ) {
+    if(setterm.getKind() == kind::EMPTYSET) { continue; }
+    if(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) == d_cardTerms.end()) {
+      Debug("sets-card") << "some problem with " << setterm << std::endl;
+    }
+    Assert(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) != d_cardTerms.end());
+    Node cardValNode = d_external.d_valuation.getModelValue(nm->mkNode(kind::CARD,setterm));
+    Rational cardValRational = cardValNode.getConst<Rational>();
+    Assert(cardValRational.isIntegral());
+    Integer cardValInteger = cardValRational.getNumerator();
+    Assert(cardValInteger.fitsSignedInt(), "Can't build models that big.");
+    int cardValInt = cardValInteger.getSignedInt();
+    Assert(cardValInt >= 0);
+    int numElems = getElements(setterm, settermElementsMap).size();
+    Assert(cardValInt >= numElems, "");
+
+    TypeNode elementType = setterm.getType().getSetElementType();
+    std::vector<TNode>& cur = slackElements[setterm];
+    for(int i = numElems; i < cardValInt; ++i) {
+      // slk = slack
+      cur.push_back(nm->mkSkolem("slk_",  elementType));
+    }
+    Debug("sets-model") << "[sets-model] Created " << cardValInt-numElems
+                        << " slack variables for " << setterm << std::endl;
   }
 
   // assign representatives to equivalence class
   BOOST_FOREACH( TNode setterm, settermsModEq ) {
     Elements elements = getElements(setterm, settermElementsMap);
+    if(edgesFd.find(setterm) != edgesFd.end()) {
+      Debug("sets-model") << "[sets-model] " << setterm << " (before slacks): " << elements.size() << std::endl;
+      std::set<TNode> leafChildren = getLeaves(edgesFd, setterm);
+      BOOST_FOREACH( TNode leafChild, leafChildren ) {
+        if(leaves.find(leafChild) == leaves.end()) { continue; }
+        BOOST_FOREACH( TNode slackVar, slackElements[leafChild] ) {
+          elements.insert(slackVar);
+        }
+      }
+      Debug("sets-model") << "[sets-model] " << setterm << " (after slacks): " << elements.size() << std::endl;
+    } else if(leaves.find(setterm) != leaves.end()) {
+      Debug("sets-model") << "[sets-model] " << setterm << " (before slacks): " << elements.size() << std::endl;
+      BOOST_FOREACH( TNode slackVar, slackElements[setterm] ) {
+        elements.insert(slackVar);
+      }
+      Debug("sets-model") << "[sets-model] " << setterm << " (after slacks): " << elements.size() << std::endl;
+    }
     Node shape = elementsToShape(elements, setterm.getType());
     shape = theory::Rewriter::rewrite(shape);
     m->assertEquality(shape, setterm, true);
@@ -1643,11 +1695,100 @@ void TheorySetsPrivate::registerCard(TNode node) {
   }
 }
 
+
+void TheorySetsPrivate::buildGraph() {
+
+  NodeManager* nm = NodeManager::currentNM();
+
+  edgesFd.clear();
+  edgesBk.clear();
+  disjoint.clear();
+  
+  for(typeof(d_processedCardPairs.begin()) it = d_processedCardPairs.begin();
+      it != d_processedCardPairs.end(); ++it) {
+    TNode s = (it->first).first;
+    TNode t = (it->first).second;
+    bool hasUnion = (it->second);
+
+    TNode sNt = nm->mkNode(kind::INTERSECTION, s, t);
+    TNode sMt = nm->mkNode(kind::SETMINUS, s, t);
+    TNode tMs = nm->mkNode(kind::SETMINUS, t, s);
+
+    edgesFd[s].insert(sNt);
+    edgesFd[s].insert(sMt); 
+    edgesBk[sNt].insert(s);
+    edgesBk[sMt].insert(s);
+
+    edgesFd[t].insert(sNt);
+    edgesFd[t].insert(tMs);
+    edgesBk[sNt].insert(t);
+    edgesBk[tMs].insert(t);
+
+    if(hasUnion) {
+      TNode sUt = nm->mkNode(kind::UNION, s, t);
+      edgesFd[sUt].insert(sNt);
+      edgesFd[sUt].insert(sMt);
+      edgesFd[sUt].insert(tMs);
+      edgesBk[sNt].insert(sUt);
+      edgesBk[sMt].insert(sUt);
+      edgesBk[tMs].insert(sUt);
+    }
+
+    disjoint.insert(make_pair(sNt, sMt));
+    disjoint.insert(make_pair(sMt, sNt));
+    disjoint.insert(make_pair(sNt, tMs));
+    disjoint.insert(make_pair(tMs, sNt));
+    disjoint.insert(make_pair(tMs, sMt));
+    disjoint.insert(make_pair(sMt, tMs));
+  }
+
+  if(Debug.isOn("sets-card-graph")) {
+    Debug("sets-card-graph") << "[sets-card-graph] Fd:" << std::endl;
+    for(typeof(edgesFd.begin()) it = edgesFd.begin();
+        it != edgesFd.end(); ++it) {
+      Debug("sets-card-graph") << "[sets-card-graph]  " << (it->first) << std::endl;
+      for(typeof( (it->second).begin()) jt = (it->second).begin();
+          jt != (it->second).end(); ++jt) {
+        Debug("sets-card-graph") << "[sets-card-graph]   " << (*jt) << std::endl;
+      }
+    }
+    Debug("sets-card-graph") << "[sets-card-graph] Bk:" << std::endl;
+    for(typeof(edgesBk.begin()) it = edgesBk.begin();
+        it != edgesBk.end(); ++it) {
+      Debug("sets-card-graph") << "[sets-card-graph]  " << (it->first) << std::endl;
+      for(typeof( (it->second).begin()) jt = (it->second).begin();
+          jt != (it->second).end(); ++jt) {
+        Debug("sets-card-graph") << "[sets-card-graph]   " << (*jt) << std::endl;
+      }
+    }
+  }
+
+
+
+  leaves.clear();
+  
+  for(typeof(d_processedCardTerms.begin()) it = d_processedCardTerms.begin();
+      it != d_processedCardTerms.end(); ++it) {
+    Node n = (*it)[0];
+    if( edgesFd.find(n) == edgesFd.end() ) {
+      leaves.insert(n);
+      Debug("sets-card-graph") << "[sets-card-graph] Leaf: " << n << std::endl;
+    }
+    if( edgesBk.find(n) != edgesBk.end() ) {
+      Assert(n.getKind() == kind::INTERSECTION ||
+             n.getKind() == kind::SETMINUS);
+    }
+  }
+
+}
+
 const std::set<TNode> getReachable(map<TNode, set<TNode> >& edges, TNode node) {
+  Debug("sets-getreachable-debug") << "[sets-getreachable-debug] " << node << ":" << std::endl;
   queue<TNode> Q;
   std::set<TNode> ret;
   ret.insert(node);
   if(edges.find(node) != edges.end()) {
+    Debug("sets-getreachable-debug") << "[sets-getreachable-debug]   " << node << ":" << std::endl;
     Q.push(node);
   }
   while(!Q.empty()) {
@@ -1657,6 +1798,7 @@ const std::set<TNode> getReachable(map<TNode, set<TNode> >& edges, TNode node) {
         it != edges[n].end(); ++it) {
       if(ret.find(*it) == ret.end()) {
         if(edges.find(*it) != edges.end()) {
+          Debug("sets-getreachable-debug") << "[sets-getreachable-debug]   " << *it << ":" << std::endl;
           Q.push(*it);
         }
         ret.insert(*it);
@@ -1665,6 +1807,38 @@ const std::set<TNode> getReachable(map<TNode, set<TNode> >& edges, TNode node) {
   }
   return ret;
 }
+
+const std::set<TNode> getLeaves(map<TNode, set<TNode> >& edges, TNode node) {
+  Debug("sets-getreachable-debug") << "[sets-getreachable-debug] " << node << ":" << std::endl;
+  queue<TNode> Q;
+  std::set<TNode> ret;
+  std::set<TNode> visited;
+  visited.insert(node);
+  if(edges.find(node) != edges.end()) {
+    Q.push(node);
+  } else {
+    Debug("sets-getreachable-debug") << "[sets-getreachable-debug]   " << node << std::endl;
+    ret.insert(node);
+  }
+  while(!Q.empty()) {
+    TNode n = Q.front();
+    Q.pop();
+    for(set<TNode>::iterator it = edges[n].begin();
+        it != edges[n].end(); ++it) {
+      if(visited.find(*it) == visited.end()) {
+        if(edges.find(*it) != edges.end()) {
+          Q.push(*it);
+        } else {
+          Debug("sets-getreachable-debug") << "[sets-getreachable-debug]   " << *it << std::endl;
+          ret.insert(*it);
+        }
+        visited.insert(*it);
+      }
+    }
+  }
+  return ret;
+}
+
 
 void TheorySetsPrivate::processCard(Theory::Effort level) {
   if(level != Theory::EFFORT_FULL) return;
@@ -1698,7 +1872,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
       Kind k = n[0].getKind();
 
       if(k == kind::SINGLETON) {
-        d_external.d_out->lemma(nm->mkNode(kind::GEQ,
+        d_external.d_out->lemma(nm->mkNode(kind::EQUAL,
                                            n,
                                            nm->mkConst(Rational(1))));
         continue;
@@ -1779,83 +1953,8 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
 
 
   // Leaves disjoint lemmas
-
-  map<TNode, set<TNode> > edgesFd;
-  map<TNode, set<TNode> > edgesBk;
-  set< pair<TNode, TNode> > disjoint;
-
-  for(typeof(d_processedCardPairs.begin()) it = d_processedCardPairs.begin();
-      it != d_processedCardPairs.end(); ++it) {
-    TNode s = (it->first).first;
-    TNode t = (it->first).second;
-    bool hasUnion = (it->second);
-
-    TNode sNt = nm->mkNode(kind::INTERSECTION, s, t);
-    TNode sMt = nm->mkNode(kind::SETMINUS, s, t);
-    TNode tMs = nm->mkNode(kind::SETMINUS, t, s);
-
-    edgesFd[s].insert(sNt);
-    edgesFd[s].insert(sMt); 
-    edgesBk[sNt].insert(s);
-    edgesBk[sMt].insert(s);
-
-    edgesFd[t].insert(sNt);
-    edgesFd[t].insert(tMs);
-    edgesBk[sNt].insert(t);
-    edgesBk[tMs].insert(s);
-
-    if(hasUnion) {
-      TNode sUt = nm->mkNode(kind::UNION, s, t);
-      edgesFd[sUt].insert(sNt);
-      edgesFd[sUt].insert(sMt);
-      edgesFd[sUt].insert(tMs);
-      edgesBk[sNt].insert(sUt);
-      edgesBk[sMt].insert(sUt);
-      edgesBk[tMs].insert(sUt);
-    }
-
-    disjoint.insert(make_pair(sNt, sMt));
-    disjoint.insert(make_pair(sMt, sNt));
-    disjoint.insert(make_pair(sNt, tMs));
-    disjoint.insert(make_pair(tMs, sNt));
-    disjoint.insert(make_pair(tMs, sMt));
-    disjoint.insert(make_pair(sMt, tMs));
-  }
-
-  if(Debug.isOn("sets-card-graph")) {
-    Debug("sets-card-graph") << "[sets-card-graph] Fd:" << std::endl;
-    for(typeof(edgesFd.begin()) it = edgesFd.begin();
-        it != edgesFd.end(); ++it) {
-      Debug("sets-card-graph") << "[sets-card-graph]  " << (it->first) << std::endl;
-      for(typeof( (it->second).begin()) jt = (it->second).begin();
-          jt != (it->second).end(); ++jt) {
-        Debug("sets-card-graph") << "[sets-card-graph]   " << (*jt) << std::endl;
-      }
-    }
-    Debug("sets-card-graph") << "[sets-card-graph] Bk:" << std::endl;
-    for(typeof(edgesBk.begin()) it = edgesBk.begin();
-        it != edgesBk.end(); ++it) {
-      Debug("sets-card-graph") << "[sets-card-graph]  " << (it->first) << std::endl;
-      for(typeof( (it->second).begin()) jt = (it->second).begin();
-          jt != (it->second).end(); ++jt) {
-        Debug("sets-card-graph") << "[sets-card-graph]   " << (*jt) << std::endl;
-      }
-    }
-  }
-
-  std::set<TNode> leaves;
-  for(typeof(d_processedCardTerms.begin()) it = d_processedCardTerms.begin();
-      it != d_processedCardTerms.end(); ++it) {
-    Node n = (*it)[0];
-    if( edgesFd.find(n) == edgesFd.end() ) {
-      leaves.insert(n);
-      Debug("sets-card-graph") << "[sets-card-graph] Leaf: " << n << std::endl;
-    }
-    if( edgesBk.find(n) != edgesBk.end() ) {
-      Assert(n.getKind() == kind::INTERSECTION ||
-             n.getKind() == kind::SETMINUS);
-    }
-  }
+  buildGraph();
+  
 
   for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
     TNode l1 = (*it);
@@ -1976,16 +2075,19 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
     for(typeof(l->begin()) l_it = l->begin(); l_it != l->end(); ++l_it) {
       elems.insert(d_equalityEngine.getRepresentative(*l_it));
     }
-    if(elems.size() <= 1) continue;
-    NodeBuilder<> nb(kind::OR);
-    nb << nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n));
-    for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
-      for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
-        if(*e1_it == *e2_it) continue;
-        nb << (nm->mkNode(kind::EQUAL, *e1_it, *e2_it));
+    if(elems.size() == 0) continue;
+    Node lem = nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n));
+    if(elems.size() > 1) {
+      NodeBuilder<> nb(kind::OR);
+      nb << lem;
+      for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
+        for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
+          if(*e1_it == *e2_it) continue;
+          nb << (nm->mkNode(kind::EQUAL, *e1_it, *e2_it));
+        }
       }
+      lem = Node(nb);
     }
-    Node lem = Node(nb);
     if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
       Debug("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
       d_external.d_out->lemma(lem);
