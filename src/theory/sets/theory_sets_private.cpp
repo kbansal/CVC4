@@ -1706,13 +1706,18 @@ void TheorySetsPrivate::buildGraph() {
   
   for(typeof(d_processedCardPairs.begin()) it = d_processedCardPairs.begin();
       it != d_processedCardPairs.end(); ++it) {
-    TNode s = (it->first).first;
-    TNode t = (it->first).second;
+    Node s = (it->first).first;
+    Assert(Rewriter::rewrite(s) == s);
+    Node t = (it->first).second;
+    Assert(Rewriter::rewrite(t) == t);
     bool hasUnion = (it->second);
 
-    TNode sNt = nm->mkNode(kind::INTERSECTION, s, t);
-    TNode sMt = nm->mkNode(kind::SETMINUS, s, t);
-    TNode tMs = nm->mkNode(kind::SETMINUS, t, s);
+    Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
+    sNt = Rewriter::rewrite(sNt);
+    Node sMt = nm->mkNode(kind::SETMINUS, s, t);
+    sMt = Rewriter::rewrite(sMt);
+    Node tMs = nm->mkNode(kind::SETMINUS, t, s);
+    tMs = Rewriter::rewrite(tMs);
 
     edgesFd[s].insert(sNt);
     edgesFd[s].insert(sMt); 
@@ -1725,7 +1730,9 @@ void TheorySetsPrivate::buildGraph() {
     edgesBk[tMs].insert(t);
 
     if(hasUnion) {
-      TNode sUt = nm->mkNode(kind::UNION, s, t);
+      Node sUt = nm->mkNode(kind::UNION, s, t);
+      sUt = Rewriter::rewrite(sUt);
+      
       edgesFd[sUt].insert(sNt);
       edgesFd[sUt].insert(sMt);
       edgesFd[sUt].insert(tMs);
@@ -1890,16 +1897,25 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
       Node s = min(n[0][0], n[0][1]);
       Node t = max(n[0][0], n[0][1]);
       bool isUnion = (k == kind::UNION);
+      Assert(Rewriter::rewrite(s) == s);
+      Assert(Rewriter::rewrite(t) == t);
 
       typeof(d_processedCardPairs.begin()) processedInfo = d_processedCardPairs.find(make_pair(s, t));
 
       if(processedInfo == d_processedCardPairs.end()) {
 
+        Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
+        sNt = Rewriter::rewrite(sNt);
+        Node sMt = nm->mkNode(kind::SETMINUS, s, t);
+        sMt = Rewriter::rewrite(sMt);
+        Node tMs = nm->mkNode(kind::SETMINUS, t, s);
+        tMs = Rewriter::rewrite(tMs);
+
         Node card_s = nm->mkNode(kind::CARD, s);
         Node card_t = nm->mkNode(kind::CARD, t);
-        Node card_sNt = nm->mkNode(kind::CARD, nm->mkNode(kind::INTERSECTION, s, t));
-        Node card_sMt = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, s, t));
-        Node card_tMs = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, t, s));
+        Node card_sNt = nm->mkNode(kind::CARD, sNt);
+        Node card_sMt = nm->mkNode(kind::CARD, sMt);
+        Node card_tMs = nm->mkNode(kind::CARD, tMs);
 
         Node lem;
       
@@ -1927,11 +1943,20 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
 
       } else if(isUnion && processedInfo->second == false) {
       
+        Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
+        sNt = Rewriter::rewrite(sNt);
+        Node sMt = nm->mkNode(kind::SETMINUS, s, t);
+        sMt = Rewriter::rewrite(sMt);
+        Node tMs = nm->mkNode(kind::SETMINUS, t, s);
+        tMs = Rewriter::rewrite(tMs);
+
         Node card_s = nm->mkNode(kind::CARD, s);
         Node card_t = nm->mkNode(kind::CARD, t);
-        Node card_sNt = nm->mkNode(kind::CARD, nm->mkNode(kind::INTERSECTION, s, t));
-        Node card_sMt = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, s, t));
-        Node card_tMs = nm->mkNode(kind::CARD, nm->mkNode(kind::SETMINUS, t, s));
+        Node card_sNt = nm->mkNode(kind::CARD, sNt);
+        Node card_sMt = nm->mkNode(kind::CARD, sMt);
+        Node card_tMs = nm->mkNode(kind::CARD, tMs);
+
+        Assert(Rewriter::rewrite(n[0]) == n[0]);
 
         Node lem = nm->mkNode(kind::EQUAL,
                               n,     // card(s union t)
@@ -1967,6 +1992,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
       if( l1 == l2 ) continue;
 
       Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
+      l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
       Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l1_inter_l2.getType())));
       if(d_equalityEngine.hasTerm(l1_inter_l2) &&
          d_equalityEngine.hasTerm(emptySet) &&
@@ -2076,18 +2102,20 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
       elems.insert(d_equalityEngine.getRepresentative(*l_it));
     }
     if(elems.size() == 0) continue;
-    Node lem = nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n));
+    NodeBuilder<> nb(kind::OR);
+    nb << ( nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n)) );
     if(elems.size() > 1) {
-      NodeBuilder<> nb(kind::OR);
-      nb << lem;
       for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
         for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
           if(*e1_it == *e2_it) continue;
           nb << (nm->mkNode(kind::EQUAL, *e1_it, *e2_it));
         }
       }
-      lem = Node(nb);
     }
+    for(typeof(elems.begin()) e_it = elems.begin(); e_it != elems.end(); ++e_it) {
+      nb << nm->mkNode(kind::NOT, nm->mkNode(kind::MEMBER, *e_it, n));
+    }
+    Node lem = Node(nb);
     if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
       Debug("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
       d_external.d_out->lemma(lem);

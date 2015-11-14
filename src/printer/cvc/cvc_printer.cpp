@@ -761,7 +761,14 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       return;
       break;
     }
-
+    case kind::CARD: {
+      out << "||";
+      toStream(out, n[0], depth, types, false);
+      out << "||";
+      return;
+      break;
+    }
+      
     // Quantifiers
     case kind::FORALL:
       out << "(FORALL";
