@@ -1929,6 +1929,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
         lem = nm->mkNode(kind::EQUAL,
                          card_t,
                          nm->mkNode(kind::PLUS, card_sNt, card_tMs));
+
         d_external.d_out->lemma(lem);
 
         // for union
@@ -1979,8 +1980,29 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
 
   // Leaves disjoint lemmas
   buildGraph();
-  
 
+  // Guess leaf nodes being empty or non-empty
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    TNode l1 = (*it);
+    if(d_equalityEngine.getRepresentative(l1).getKind() == kind::EMPTYSET) continue;
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l1.getType())));
+    if(!d_equalityEngine.hasTerm(emptySet)) {
+      d_equalityEngine.addTerm(emptySet);
+    }
+    if(!d_equalityEngine.areDisequal(l1, emptySet, false)) {
+      Node lem = nm->mkNode(kind::EQUAL, l1, emptySet);
+      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+      d_external.d_out->lemma(lem);
+      newLemmaGenerated = true;
+    }
+  }
+
+  if(newLemmaGenerated) {
+    Debug("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
+    return;
+  }
+
+  // Leaves disjoint lemmas
   for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
     TNode l1 = (*it);
     if(d_equalityEngine.getRepresentative(l1).getKind() == kind::EMPTYSET) continue;
@@ -2033,11 +2055,25 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
         Debug("sets-card-graph") << "[sets-card-graph] No equality found: " << l1 << " and " << l2 << std::endl;
         continue;
       }
-      
+
+      // Node lem = nm->mkNode(kind::OR,
+      //                       nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet),
+      //                       nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
+      //                                  nm->mkNode(kind::CARD, l1_inter_l2)));
       Node lem = nm->mkNode(kind::OR,
                             nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet),
-                            nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
-                                       nm->mkNode(kind::CARD, l1_inter_l2)));
+                            nm->mkNode(kind::AND,
+                                       nm->mkNode(kind::NOT,
+                                                  nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet)),
+                                       nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
+                                                  nm->mkNode(kind::CARD, l1_inter_l2))));
+
+      // Node lem = nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet);
+      // lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+                            // ,
+                            // nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
+                            //            nm->mkNode(kind::CARD, l1_inter_l2)));
+
       d_external.d_out->lemma(lem);
       Debug("sets-card") << "[sets-card] Guessing disjointness of : " << l1 << " and " << l2 << std::endl;
       if(Debug.isOn("sets-card-disjoint")) {

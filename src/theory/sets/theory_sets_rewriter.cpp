@@ -120,7 +120,6 @@ RewriteResponse flattenNode(TNode n, TNode trivialNode, TNode skipNode)
   // }
 }
 
-  
 bool checkConstantMembership(TNode elementTerm, TNode setTerm)
 {
   if(setTerm.getKind() == kind::EMPTYSET) {
