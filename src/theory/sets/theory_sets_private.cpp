@@ -770,7 +770,7 @@ Node TheorySetsPrivate::elementsToShape(set<Node> elements, TypeNode setType) co
 
 void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
 {
-  Debug("sets-model") << "[sets-model] collectModelInfo(..., fullModel="
+  Trace("sets-model") << "[sets-model] collectModelInfo(..., fullModel="
                       << (fullModel ? "true)" : "false)") << std::endl;
 
   set<Node> terms;
@@ -867,9 +867,6 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
   std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> slackElements;
   BOOST_FOREACH( TNode setterm, leaves ) {
     if(setterm.getKind() == kind::EMPTYSET) { continue; }
-    if(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) == d_cardTerms.end()) {
-      Debug("sets-card") << "some problem with " << setterm << std::endl;
-    }
     Assert(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) != d_cardTerms.end());
     Node cardValNode = d_external.d_valuation.getModelValue(nm->mkNode(kind::CARD,setterm));
     Rational cardValRational = cardValNode.getConst<Rational>();
@@ -1871,7 +1868,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
         continue;
       }
 
-      Debug("sets-card") << "[sets-card]  Processing " << n << " in eq cl of " << (*it) << std::endl;
+      Trace("sets-card") << "[sets-card]  Processing " << n << " in eq cl of " << (*it) << std::endl;
 
       newLemmaGenerated = true;
       d_processedCardTerms.insert(n);
@@ -1972,7 +1969,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
   }//d_cardTerms loop
 
   if(newLemmaGenerated) {
-    Debug("sets-card") << "[sets-card] New introduce done. Returning." << std::endl;
+    Trace("sets-card") << "[sets-card] New introduce done. Returning." << std::endl;
     return;
   }
 
@@ -1980,27 +1977,6 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
 
   // Leaves disjoint lemmas
   buildGraph();
-
-  // Guess leaf nodes being empty or non-empty
-  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
-    TNode l1 = (*it);
-    if(d_equalityEngine.getRepresentative(l1).getKind() == kind::EMPTYSET) continue;
-    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l1.getType())));
-    if(!d_equalityEngine.hasTerm(emptySet)) {
-      d_equalityEngine.addTerm(emptySet);
-    }
-    if(!d_equalityEngine.areDisequal(l1, emptySet, false)) {
-      Node lem = nm->mkNode(kind::EQUAL, l1, emptySet);
-      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
-      d_external.d_out->lemma(lem);
-      newLemmaGenerated = true;
-    }
-  }
-
-  if(newLemmaGenerated) {
-    Debug("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
-    return;
-  }
 
   // Leaves disjoint lemmas
   for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
@@ -2056,26 +2032,13 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
         continue;
       }
 
-      // Node lem = nm->mkNode(kind::OR,
-      //                       nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet),
-      //                       nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
-      //                                  nm->mkNode(kind::CARD, l1_inter_l2)));
       Node lem = nm->mkNode(kind::OR,
                             nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet),
-                            nm->mkNode(kind::AND,
-                                       nm->mkNode(kind::NOT,
-                                                  nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet)),
-                                       nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
-                                                  nm->mkNode(kind::CARD, l1_inter_l2))));
-
-      // Node lem = nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet);
-      // lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
-                            // ,
-                            // nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
-                            //            nm->mkNode(kind::CARD, l1_inter_l2)));
+                            nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
+                                       nm->mkNode(kind::CARD, l1_inter_l2)));
 
       d_external.d_out->lemma(lem);
-      Debug("sets-card") << "[sets-card] Guessing disjointness of : " << l1 << " and " << l2 << std::endl;
+      Trace("sets-card") << "[sets-card] Guessing disjointness of : " << l1 << " and " << l2 << std::endl;
       if(Debug.isOn("sets-card-disjoint")) {
         Debug("sets-card-disjoint") << "[sets-card-disjoint] Lemma for " << l1 << " and " << l2 << " generated because:" << std::endl;
         for(typeof(disjoint.begin()) it = disjoint.begin(); it != disjoint.end(); ++it) {
@@ -2083,7 +2046,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
         }
       }
       newLemmaGenerated = true;
-      Debug("sets-card") << "[sets-card] New intersection being empty lemma generated. Returning." << std::endl;
+      Trace("sets-card") << "[sets-card] New intersection being empty lemma generated. Returning." << std::endl;
       return;
     }
   }
@@ -2119,11 +2082,35 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
   }
 
   if(newLemmaGenerated) {
-    Debug("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
+    Trace("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
     return;
   }
 
 
+  // Guess leaf nodes being empty or non-empty
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    Node n = d_equalityEngine.getRepresentative(*it);
+    if(n.getKind() == kind::EMPTYSET) continue;
+    if(d_termInfoManager->getMembers(n)->size() > 0) continue;
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(n.getType())));
+    if(!d_equalityEngine.hasTerm(emptySet)) {
+      d_equalityEngine.addTerm(emptySet);
+    }
+    if(!d_equalityEngine.areDisequal(n, emptySet, false)) {
+      Node lem = nm->mkNode(kind::EQUAL, n, emptySet);
+      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+      Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
+      d_cardLowerLemmaCache.insert(lem);
+      d_external.d_out->lemma(lem);
+      newLemmaGenerated = true;
+      break;
+    }
+  }
+
+  if(newLemmaGenerated) {
+    Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
+    return;
+  }
 
   // Assert Lower bound
   for(typeof(leaves.begin()) it = leaves.begin();
@@ -2153,7 +2140,7 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
     }
     Node lem = Node(nb);
     if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
-      Debug("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
+      Trace("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
       d_external.d_out->lemma(lem);
       d_cardLowerLemmaCache.insert(lem);
       newLemmaGenerated = true;
