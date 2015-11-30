@@ -28,7 +28,7 @@ namespace sets {
 class TheorySetsRewriter {
 private:
   static bool collectSetComponents( Node n, std::map< Node, bool >& c, bool pol );
-  static Node rewriteSet( Node s, std::map< Node, bool >& ca );
+  static Node rewriteSet( Node s, std::map< Node, bool >& ca, Node empSet );
   static Node rewriteSet( Node s );
 public:
 
