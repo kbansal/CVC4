@@ -362,7 +362,7 @@ RewriteResponse TheorySetsRewriter::preRewrite(TNode node) {
 }
 
 Node TheorySetsRewriter::rewriteSet( Node s ) {
-  Trace("set-rewrite-debug") << "Rewrite set : " << s << std::endl;
+  Trace("sets-rewrite-debug") << "Rewrite set : " << s << std::endl;
   Node empSet = NodeManager::currentNM()->mkConst(EmptySet(NodeManager::currentNM()->toType(s.getType())));
   bool success;
   do{
@@ -371,8 +371,8 @@ Node TheorySetsRewriter::rewriteSet( Node s ) {
     Node ss = rewriteSet( s, ca, empSet );
     if( ss!=s ){
       Assert( !ss.isNull() );
-      Trace("set-rewrite") << "Rewrite set : " << s << std::endl;
-      Trace("set-rewrite") << "........got : " << ss << std::endl;
+      Trace("sets-rewrite") << "Rewrite set : " << s << std::endl;
+      Trace("sets-rewrite") << "........got : " << ss << std::endl;
       success = true;
       s = ss;
     }
@@ -391,7 +391,7 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
       return empSet;
     }
   }else{
-    Trace("set-rewrite-debug") << "Get components : " << s << std::endl;
+    Trace("sets-rewrite-debug") << "Get components : " << s << std::endl;
     std::map< Node, bool > c;
     bool pol = s.getKind()!=kind::UNION;
     if( pol ){
@@ -401,10 +401,10 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
       }
     }
     if( collectSetComponents( s, c, pol ) ){
-      if( Trace.isOn("set-rewrite-debug") ){
-        Trace("set-rewrite-debug") << "  got components : " << std::endl;
+      if( Trace.isOn("sets-rewrite-debug") ){
+        Trace("sets-rewrite-debug") << "  got components : " << std::endl;
         for( std::map< Node, bool >::iterator it = c.begin(); it != c.end(); ++it ){
-          Trace("set-rewrite-debug") << "    " << it->first << " -> " << it->second << std::endl;
+          Trace("sets-rewrite-debug") << "    " << it->first << " -> " << it->second << std::endl;
         }
       }
       
@@ -420,19 +420,20 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
           if( ca.find( it->first )==ca.end() ){
             nc.erase( it->first );
             Node prev = it->first;
-            Node ss = rewriteSet( it->first, nc, empSet );
+            //only rewrite positive components here
+            Node ss = it->second ? rewriteSet( it->first, nc, empSet ) : it->first;
             if( prev!=ss ){
-              Trace("set-rewrite-debug") << "  simplify component : " << prev << "..." << ss << std::endl;
+              Trace("sets-rewrite-debug") << "  simplify component : " << prev << "..." << ss << std::endl;
             }
             if( ss==empSet ){
-              Trace("set-rewrite-debug") << "  return singularity " << ss << std::endl;
+              Trace("sets-rewrite-debug") << "  return singularity " << ss << std::endl;
               return ss;
             }else if( !ss.isNull() ){
               std::map< Node, bool >::iterator itc = nc.find( ss );
               if( itc==nc.end() ){
                 nc[ss] = it->second;
               }else if( it->second!=itc->second ){
-                Trace("set-rewrite-debug") << "...conflict, return empty set." << std::endl;
+                Trace("sets-rewrite-debug") << "...conflict, return empty set." << std::endl;
                 return empSet;
               }
             }
@@ -443,17 +444,17 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
           Node prev = it->first;
           Node ss = rewriteSet( it->first, ca, empSet );
           if( prev!=ss ){
-            Trace("set-rewrite-debug") << "  simplify component : " << prev << "..." << ss << std::endl;
+            Trace("sets-rewrite-debug") << "  simplify component : " << prev << "..." << ss << std::endl;
           }
           if( ss.isNull() ){
-            Trace("set-rewrite-debug") << "  return singularity " << ss << std::endl;
+            Trace("sets-rewrite-debug") << "  return singularity " << ss << std::endl;
             return ss;
           }else if( ss!=empSet ){
             std::map< Node, bool >::iterator itc = nc.find( ss );
             if( itc==nc.end() ){
               nc[ss] = it->second;
             }else if( it->second!=itc->second ){
-                Trace("set-rewrite-debug") << "...conflict, return complete set." << std::endl;
+                Trace("sets-rewrite-debug") << "...conflict, return complete set." << std::endl;
               return Node::null();
             }
           }
@@ -476,7 +477,7 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
         }
         if( i==0 ){
           if( comp[i].empty() ){
-            Trace("set-rewrite-debug") << "...return trivial set (no components)." << std::endl;
+            Trace("sets-rewrite-debug") << "...return trivial set (no components)." << std::endl;
             if( pol ){
               return Node::null();
             }else{
@@ -499,14 +500,14 @@ Node TheorySetsRewriter::rewriteSet( Node s, std::map< Node, bool >& ca, Node em
           }
         }
       }
-      Trace("set-rewrite-debug") << "...return " << curr << std::endl;
+      Trace("sets-rewrite-debug") << "...return " << curr << std::endl;
       return curr;
     }else{
       if( pol ){
-        Trace("set-rewrite-debug") << "...return empty set." << std::endl;
+        Trace("sets-rewrite-debug") << "...return empty set." << std::endl;
         return NodeManager::currentNM()->mkConst(EmptySet(NodeManager::currentNM()->toType(s.getType())));
       }else{
-        Trace("set-rewrite-debug") << "...return complete set." << std::endl;
+        Trace("sets-rewrite-debug") << "...return complete set." << std::endl;
         return Node::null();
       }
     }
