@@ -14,6 +14,7 @@
  ** Sets theory implementation.
  **/
 
+#include <algorithm>
 #include <boost/foreach.hpp>
 
 #include "theory/theory_model.h"
@@ -102,8 +103,10 @@ void TheorySetsPrivate::check(Theory::Effort level) {
     d_external.d_out->lemma(getLemma());
     return;
   }
+  
+  //processCard(level);
 
-  processCard(level);
+  processCard2(level);
   
   // if we are here, there is no conflict and we are complete
   if(Debug.isOn("sets-scrutinize")) { d_scrutinize->postCheckInvariants(); }
@@ -139,10 +142,15 @@ void TheorySetsPrivate::assertEquality(TNode fact, TNode reason, bool learnt)
     return;
   }
 
+  // disequality lemma
   if(!polarity && atom[0].getType().isSet()) {
     addToPending(atom);
   }
 
+  // for cardinality
+  if(polarity && atom[0].getType().isSet()) {
+    d_graphMergesPending.push(make_pair(atom[0], atom[1]));
+  }
 }/* TheorySetsPrivate::assertEquality() */
 
 
@@ -1170,7 +1178,14 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_typesAdded(),
   d_processedCardTerms(),
   d_processedCardPairs(),
-  d_cardLowerLemmaCache(u)
+  d_cardLowerLemmaCache(u),
+  edgesFd(),
+  edgesBk(),
+  disjoint(),
+  leaves(),
+  d_V(c),
+  d_E(c),
+  d_graphMergesPending(c)
 {
   d_termInfoManager = new TermInfoManager(*this, c, &d_equalityEngine);
 
@@ -1778,10 +1793,10 @@ void TheorySetsPrivate::buildGraph() {
       leaves.insert(n);
       Debug("sets-card-graph") << "[sets-card-graph] Leaf: " << n << std::endl;
     }
-    if( edgesBk.find(n) != edgesBk.end() ) {
-      Assert(n.getKind() == kind::INTERSECTION ||
-             n.getKind() == kind::SETMINUS);
-    }
+    // if( edgesBk.find(n) != edgesBk.end() ) {
+    //   Assert(n.getKind() == kind::INTERSECTION ||
+    //          n.getKind() == kind::SETMINUS);
+    // }
   }
 
 }
@@ -2148,6 +2163,518 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
   }  
 }
 
+/************ New implementation **************/
+
+/***
+ * Data structures:
+ * d_V : vertices in the graph (context dependent data structure)
+ ** invariant : for all v in d_V, Rewriter::rewrite("Normalize"(v)) = v
+ *** currently ignoreing normalize
+ * d_E : edges between vertices in the graph
+ *
+ * Methods: merge(vector<int> a, vector<int> b) * get non empty leaves
+ * of a & b, for each internal node, there will be two parent nodes
+ *
+ * Introduce
+ *   <If a node already exists, merge with it>
+ */
+
+void TheorySetsPrivate::add_edges(TNode source, TNode dest) {
+  vector<TNode> V;
+  V.push_back(dest);
+  Assert(d_E.find(source) == d_E.end());
+  d_E.insert(source, V);
+}
+
+void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2) {
+  vector<TNode> V;
+  V.push_back(dest1);
+  V.push_back(dest2);
+  Assert(d_E.find(source) == d_E.end());
+  d_E.insert(source, V);
+}
+
+void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2, TNode dest3) {
+  vector<TNode> V;
+  V.push_back(dest1);
+  V.push_back(dest2);
+  V.push_back(dest3);
+  Assert(d_E.find(source) == d_E.end());
+  d_E.insert(source, V);
+}
+
+void TheorySetsPrivate::add_edges(TNode source, const std::vector<TNode>& dests) {
+  Assert(d_E.find(source) == d_E.end());
+  d_E.insert(source, dests);
+}
+
+
+void TheorySetsPrivate::add_node(TNode vertex) {
+  Debug("sets-graph-details") << "[sets-graph-details] add_node " << vertex << std::endl;
+  d_V.insert(vertex);
+}
+
+std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex) {
+  Debug("sets-graph-details") << "[sets-graph-details] get_leaves " << vertex << std::endl;
+  std::set<TNode> a;
+  Assert(d_V.find(vertex) != d_V.end());
+  if(d_E.find(vertex) != d_E.end()) {
+    Assert(d_E[vertex].get().size() > 0);
+    for(auto const v : d_E[vertex].get()) {
+      std::set<TNode> s = get_leaves(v);
+      a.insert(s.begin(), s.end());
+    }
+  } else {
+    a.insert(vertex);
+  }
+  return a;
+}
+
+std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex1, TNode vertex2) {
+  std::set<TNode> s = get_leaves(vertex1);
+  std::set<TNode> t = get_leaves(vertex2);
+  t.insert(s.begin(), s.end());
+  return s;
+}
+
+void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, TNode reason) {
+  NodeManager* nm = NodeManager::currentNM();
+
+  Debug("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
+                            << std::endl;
+  
+  std::set<TNode> leaves3, leaves4;
+  std::set_difference(leaves1.begin(), leaves1.end(), leaves2.begin(), leaves2.end(),
+                      std::inserter(leaves3, leaves3.begin()));
+  std::set_difference(leaves2.begin(), leaves2.end(), leaves1.begin(), leaves1.end(),
+                      std::inserter(leaves4, leaves4.begin()));
+
+  if(leaves3.size() == 0) {
+    Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 1" << std::endl;
+    // make everything in leaves4 empty
+    for(TNode v : leaves4) {
+      Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
+      learnLiteral( /* atom = */ EQUAL(v, emptySet),
+                    /* polarity = */ true,
+                    /* reason = */  reason);
+    }
+  } else if(leaves4.size() == 0) {
+    Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 2" << std::endl;
+    // make everything in leaves3 empty
+    for(TNode v : leaves3) {
+      Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
+      learnLiteral( /* atom = */ EQUAL(v, emptySet),
+                    /* polarity = */ true,
+                    /* reason = */ reason );
+    }
+  } else {
+    Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 3" << std::endl;
+    std::map<TNode, vector<TNode> > children;
+  
+    // Merge Equality 3
+    for(TNode l1 : leaves3) {
+      for(TNode l2 : leaves4) {
+        Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
+        l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
+        children[l1].push_back(l1_inter_l2);
+        children[l2].push_back(l1_inter_l2);
+        add_node(l1_inter_l2);
+      }
+    }
+
+    for(auto const l : children) {
+      add_edges(l.first, l.second);
+      Node rhs;
+      if(l.second.size() == 1) {
+        rhs = nm->mkNode(kind::CARD, l.second[0]);
+      } else {
+        NodeBuilder<> nb(kind::PLUS);
+        for(TNode n : l.second) {
+          Node card_n = nm->mkNode(kind::CARD, n);
+          nb << card_n;
+        }
+        rhs = Node(nb);
+      }
+      Node lem = nm->mkNode(kind::EQUAL,
+                            nm->mkNode(kind::CARD, l.first),
+                            rhs);
+      lem = Rewriter::rewrite(lem);
+      d_external.d_out->lemma(lem);
+    }
+    // learnLiteral( /* atom = */ EQUAL(v, emptySet),
+    //               /* polarity = */ true,
+    //               /* reason = */ EQUAL(eq_left, eq_right) );
+  }
+}
+
+void  TheorySetsPrivate::print_graph() {
+  std::string tag = "sets-graph";
+  if(Trace.isOn("sets-graph")) {
+    Trace(tag) << "[sets-graph] Graph : " << std::endl;
+    for(TNode v : d_V) {
+    // BOOST_FOREACH(TNode v, d_V) {
+      Trace(tag) << "[" << tag << "]  " << v << " : ";
+      // BOOST_FOREACH(TNode w, d_E[v].get()) {
+      if(d_E.find(v) != d_E.end()) {
+        for(TNode w : d_E[v].get()) {
+          Trace(tag) << w << ", ";
+        }
+      } else {
+        Trace(tag) << " leaf. " ;
+      }
+      Trace(tag) << std::endl;
+    }
+  }
+}
+
+void TheorySetsPrivate::processCard2(Theory::Effort level) {
+  if(level != Theory::EFFORT_FULL) return;
+
+
+  Trace("sets-card") << "[sets-card] processCard( " << level << ")" << std::endl;
+  Trace("sets-card") << "[sets-card]   # processed terms = " << d_processedCardTerms.size() << std::endl;
+  Trace("sets-card") << "[sets-card]   # processed pairs = " << d_processedCardPairs.size() << std::endl;
+  NodeManager* nm = NodeManager::currentNM();
+
+  bool newLemmaGenerated = false;
+  
+  // Introduce lemma
+  for(typeof(d_cardTerms.begin()) it = d_cardTerms.begin();
+      it != d_cardTerms.end(); ++it) {
+
+    for(eq::EqClassIterator j(d_equalityEngine.getRepresentative((*it)[0]), &d_equalityEngine);
+        !j.isFinished(); ++j) {
+
+      Node n = nm->mkNode(kind::CARD, (*j));
+
+      // if(d_processedCardTerms.find(n) != d_processedCardTerms.end()) {
+      //   continue;
+      // }
+
+      if(d_V.find(n[0]) != d_V.end()) {
+        // already in the graph
+        continue;
+      }
+
+      add_node(n[0]);
+
+      Trace("sets-card") << "[sets-card]  Processing " << n << " in eq cl of " << (*it) << std::endl;
+
+      // d_processedCardTerms.insert(n);
+      
+      Kind k = n[0].getKind();
+
+      if(k == kind::SINGLETON) {
+        newLemmaGenerated = true;
+        d_external.d_out->lemma(nm->mkNode(kind::EQUAL,
+                                           n,
+                                           nm->mkConst(Rational(1))));
+        continue;
+      } else {
+        newLemmaGenerated = true;
+        d_external.d_out->lemma(nm->mkNode(kind::GEQ,
+                                           n,
+                                           nm->mkConst(Rational(0))));
+      }
+
+      // rest of the processing is for compound terms
+      if(k != kind::UNION && k != kind::INTERSECTION && k != kind::SETMINUS) {
+        continue;
+      }
+  
+      Node s = min(n[0][0], n[0][1]);
+      Node t = max(n[0][0], n[0][1]);
+      bool isUnion = (k == kind::UNION);
+      Assert(Rewriter::rewrite(s) == s);
+      Assert(Rewriter::rewrite(t) == t);
+
+      typeof(d_processedCardPairs.begin()) processedInfo = d_processedCardPairs.find(make_pair(s, t));
+
+      if(processedInfo == d_processedCardPairs.end()) {
+
+        Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
+        sNt = Rewriter::rewrite(sNt);
+        Node sMt = nm->mkNode(kind::SETMINUS, s, t);
+        sMt = Rewriter::rewrite(sMt);
+        Node tMs = nm->mkNode(kind::SETMINUS, t, s);
+        tMs = Rewriter::rewrite(tMs);
+
+        Node card_s = nm->mkNode(kind::CARD, s);
+        Node card_t = nm->mkNode(kind::CARD, t);
+        Node card_sNt = nm->mkNode(kind::CARD, sNt);
+        Node card_sMt = nm->mkNode(kind::CARD, sMt);
+        Node card_tMs = nm->mkNode(kind::CARD, tMs);
+
+        Node lem;
+      
+        add_node(sMt);
+        add_node(sNt);
+        add_node(tMs);
+
+        // for s
+        if(d_V.find(s) == d_V.end()) {
+          Assert(d_E.find(s) == d_E.end());
+          add_node(s);
+          add_edges(s, sMt, sNt);
+
+          lem = nm->mkNode(kind::EQUAL,
+                           card_s,
+                           nm->mkNode(kind::PLUS, card_sNt, card_sMt));
+          d_external.d_out->lemma(lem);
+        } else {
+          merge_nodes(get_leaves(s), get_leaves(sMt, sNt), d_trueNode);
+        }
+
+        // for t
+        if(d_V.find(t) == d_V.end()) {
+          Assert(d_E.find(t) == d_E.end());
+          add_node(t);
+          add_edges(t, sNt, tMs);
+
+          lem = nm->mkNode(kind::EQUAL,
+                           card_t,
+                           nm->mkNode(kind::PLUS, card_sNt, card_tMs));
+          d_external.d_out->lemma(lem);
+        } else {
+          merge_nodes(get_leaves(t), get_leaves(sNt, tMs), d_trueNode);
+        }
+
+        // for union
+        if(isUnion) {
+          lem = nm->mkNode(kind::EQUAL,
+                           n,     // card(s union t)
+                           nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
+          d_external.d_out->lemma(lem);
+
+          Assert(d_E.find(n[0]) == d_E.end());
+          add_edges(n[0], sMt, sNt, tMs);
+        }
+
+        newLemmaGenerated = true;
+        d_processedCardPairs.insert(make_pair(make_pair(s, t), isUnion));
+
+        // updating the graph
+      } else if(isUnion && processedInfo->second == false) {
+      
+        Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
+        sNt = Rewriter::rewrite(sNt);
+        Node sMt = nm->mkNode(kind::SETMINUS, s, t);
+        sMt = Rewriter::rewrite(sMt);
+        Node tMs = nm->mkNode(kind::SETMINUS, t, s);
+        tMs = Rewriter::rewrite(tMs);
+
+        Node card_s = nm->mkNode(kind::CARD, s);
+        Node card_t = nm->mkNode(kind::CARD, t);
+        Node card_sNt = nm->mkNode(kind::CARD, sNt);
+        Node card_sMt = nm->mkNode(kind::CARD, sMt);
+        Node card_tMs = nm->mkNode(kind::CARD, tMs);
+
+        Assert(Rewriter::rewrite(n[0]) == n[0]);
+
+        Node lem = nm->mkNode(kind::EQUAL,
+                              n,     // card(s union t)
+                              nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
+        d_external.d_out->lemma(lem);
+
+        processedInfo->second = true;
+
+        Assert(d_E.find(n[0]) == d_E.end());
+        add_edges(n[0], sMt, sNt, tMs);
+      }
+
+    }//equivalence class loop
+
+  }//d_cardTerms loop
+
+  print_graph();
+
+  while(!d_graphMergesPending.empty()) {
+    std::pair<TNode,TNode> np = d_graphMergesPending.front();
+    d_graphMergesPending.pop();
+    merge_nodes(get_leaves(np.first), get_leaves(np.second), EQUAL(np.first, np.second));
+  }
+
+  return;
+  
+  // if(newLemmaGenerated) {
+  //   Trace("sets-card") << "[sets-card] New introduce done. Returning." << std::endl;
+  //   return;
+  // }
+
+  // Leaves disjoint lemmas
+  buildGraph();
+
+  // Leaves disjoint lemmas
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    TNode l1 = (*it);
+    if(d_equalityEngine.getRepresentative(l1).getKind() == kind::EMPTYSET) continue;
+    for(typeof(leaves.begin()) jt = leaves.begin(); jt != leaves.end(); ++jt) {
+      TNode l2 = (*jt);
+
+      if(d_equalityEngine.getRepresentative(l2).getKind() == kind::EMPTYSET) continue;
+
+      if( l1 == l2 ) continue;
+
+      Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
+      l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
+      Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l1_inter_l2.getType())));
+      if(d_equalityEngine.hasTerm(l1_inter_l2) &&
+         d_equalityEngine.hasTerm(emptySet) &&
+         d_equalityEngine.areEqual(l1_inter_l2, emptySet)) {
+        Debug("sets-card-graph") << "[sets-card-graph] Disjoint (asserted): " << l1 << " and " << l2 << std::endl;
+        continue;               // known to be disjoint
+      }
+
+      std::set<TNode> l1_ancestors = getReachable(edgesBk, l1);
+      std::set<TNode> l2_ancestors = getReachable(edgesBk, l2);
+
+      // have a disjoint edge
+      bool loop = true;
+      bool equality = false;
+      for(typeof(l1_ancestors.begin()) l1_it = l1_ancestors.begin();
+          l1_it != l1_ancestors.end() && loop; ++l1_it) {
+        for(typeof(l2_ancestors.begin()) l2_it = l2_ancestors.begin();
+            l2_it != l2_ancestors.end() && loop; ++l2_it) {
+          TNode n1 = (*l1_it);
+          TNode n2 = (*l2_it);
+          if(disjoint.find(make_pair(n1, n2)) != disjoint.find(make_pair(n2, n1))) {
+            loop = false;
+          }
+          if(n1 == n2) {
+            equality = true;
+          }
+          if(d_equalityEngine.hasTerm(n1) && d_equalityEngine.hasTerm(n2) &&
+             d_equalityEngine.areEqual(n1, n2)) {
+            equality = true;
+          }
+        }
+      }
+      if(loop == false) {
+        Debug("sets-card-graph") << "[sets-card-graph] Disjoint (always): " << l1 << " and " << l2 << std::endl;
+        continue;
+      }
+      if(equality == false) {
+        Debug("sets-card-graph") << "[sets-card-graph] No equality found: " << l1 << " and " << l2 << std::endl;
+        continue;
+      }
+
+      Node lem = nm->mkNode(kind::OR,
+                            nm->mkNode(kind::EQUAL, l1_inter_l2, emptySet),
+                            nm->mkNode(kind::LT, nm->mkConst(Rational(0)),
+                                       nm->mkNode(kind::CARD, l1_inter_l2)));
+
+      d_external.d_out->lemma(lem);
+      Trace("sets-card") << "[sets-card] Guessing disjointness of : " << l1 << " and " << l2 << std::endl;
+      if(Debug.isOn("sets-card-disjoint")) {
+        Debug("sets-card-disjoint") << "[sets-card-disjoint] Lemma for " << l1 << " and " << l2 << " generated because:" << std::endl;
+        for(typeof(disjoint.begin()) it = disjoint.begin(); it != disjoint.end(); ++it) {
+          Debug("sets-card-disjoint") << "[sets-card-disjoint]   " << it->first << " " << it->second << std::endl;
+        }
+      }
+      newLemmaGenerated = true;
+      Trace("sets-card") << "[sets-card] New intersection being empty lemma generated. Returning." << std::endl;
+      return;
+    }
+  }
+
+  Assert(!newLemmaGenerated);
+
+
+
+  // Elements being either equal or disequal
+  
+  for(typeof(leaves.begin()) it = leaves.begin();
+      it != leaves.end(); ++it) {
+    Assert(d_equalityEngine.hasTerm(*it));
+    Node n = d_equalityEngine.getRepresentative(*it);
+    Assert(n.getKind() == kind::EMPTYSET || leaves.find(n) != leaves.end());
+    if(n != *it) continue;
+    const CDTNodeList* l = d_termInfoManager->getMembers(*it);
+    std::set<TNode> elems;
+    for(typeof(l->begin()) l_it = l->begin(); l_it != l->end(); ++l_it) {
+      elems.insert(d_equalityEngine.getRepresentative(*l_it));
+    }
+    for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
+      for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
+        if(*e1_it == *e2_it) continue;
+        if(!d_equalityEngine.areDisequal(*e1_it, *e2_it, false)) {
+          Node lem = nm->mkNode(kind::EQUAL, *e1_it, *e2_it);
+          lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+          d_external.d_out->lemma(lem);
+          newLemmaGenerated = true;
+        }
+      }
+    }
+  }
+
+  if(newLemmaGenerated) {
+    Trace("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
+    return;
+  }
+
+
+  // Guess leaf nodes being empty or non-empty
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    Node n = d_equalityEngine.getRepresentative(*it);
+    if(n.getKind() == kind::EMPTYSET) continue;
+    if(d_termInfoManager->getMembers(n)->size() > 0) continue;
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(n.getType())));
+    if(!d_equalityEngine.hasTerm(emptySet)) {
+      d_equalityEngine.addTerm(emptySet);
+    }
+    if(!d_equalityEngine.areDisequal(n, emptySet, false)) {
+      Node lem = nm->mkNode(kind::EQUAL, n, emptySet);
+      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+      Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
+      d_cardLowerLemmaCache.insert(lem);
+      d_external.d_out->lemma(lem);
+      newLemmaGenerated = true;
+      break;
+    }
+  }
+
+  if(newLemmaGenerated) {
+    Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
+    return;
+  }
+
+  // Assert Lower bound
+  for(typeof(leaves.begin()) it = leaves.begin();
+      it != leaves.end(); ++it) {
+    Assert(d_equalityEngine.hasTerm(*it));
+    Node n = d_equalityEngine.getRepresentative(*it);
+    Assert(n.getKind() == kind::EMPTYSET || leaves.find(n) != leaves.end());
+    if(n != *it) continue;
+    const CDTNodeList* l = d_termInfoManager->getMembers(n);
+    std::set<TNode> elems;
+    for(typeof(l->begin()) l_it = l->begin(); l_it != l->end(); ++l_it) {
+      elems.insert(d_equalityEngine.getRepresentative(*l_it));
+    }
+    if(elems.size() == 0) continue;
+    NodeBuilder<> nb(kind::OR);
+    nb << ( nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n)) );
+    if(elems.size() > 1) {
+      for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
+        for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
+          if(*e1_it == *e2_it) continue;
+          nb << (nm->mkNode(kind::EQUAL, *e1_it, *e2_it));
+        }
+      }
+    }
+    for(typeof(elems.begin()) e_it = elems.begin(); e_it != elems.end(); ++e_it) {
+      nb << nm->mkNode(kind::NOT, nm->mkNode(kind::MEMBER, *e_it, n));
+    }
+    Node lem = Node(nb);
+    if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
+      Trace("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
+      d_external.d_out->lemma(lem);
+      d_cardLowerLemmaCache.insert(lem);
+      newLemmaGenerated = true;
+    }
+  }  
+}
+
+  
   
 }/* CVC4::theory::sets namespace */
 }/* CVC4::theory namespace */

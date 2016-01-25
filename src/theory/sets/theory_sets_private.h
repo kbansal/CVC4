@@ -218,6 +218,22 @@ private:
   std::set<TNode> leaves;
   void buildGraph();
 
+  /* For calculus as in paper */
+  void processCard2(Theory::Effort level);
+  CDNodeSet d_V;
+  context::CDHashMap <TNode, std::vector<TNode>, TNodeHashFunction > d_E;
+  void add_edges(TNode source, TNode dest);
+  void add_edges(TNode source, TNode dest1, TNode dest2);
+  void add_edges(TNode source, TNode dest1, TNode dest2, TNode dest3);
+  void add_edges(TNode source, const std::vector<TNode>& dests);
+  void add_node(TNode vertex);
+  void merge_nodes(std::set<TNode> a, std::set<TNode> b, TNode reason);
+  std::set<TNode> get_leaves(TNode vertex);
+  std::set<TNode> get_leaves(TNode vertex1, TNode vertex2);
+  void print_graph();
+  context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;
+
+  std::set<TNode> getNonEmptyLeaves(TNode);
 };/* class TheorySetsPrivate */
 
 
