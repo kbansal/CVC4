@@ -2275,9 +2275,14 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     for(TNode l1 : leaves3) {
       for(TNode l2 : leaves4) {
         Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
-        l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
+        // l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
         children[l1].push_back(l1_inter_l2);
         children[l2].push_back(l1_inter_l2);
+        if(d_V.find(l1_inter_l2) != d_V.end()) {
+          // This case needs to be handled, currently not
+          Warning() << "This might create a loop. We need to handle this case. Probably merge the two nodes?" << std::endl;
+          Unhandled();
+        }
         add_node(l1_inter_l2);
       }
     }
@@ -2296,9 +2301,11 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
         }
         rhs = Node(nb);
       }
-      Node lem = nm->mkNode(kind::EQUAL,
-                            nm->mkNode(kind::CARD, it->first),
-                            rhs);
+      Node lem;
+      lem = nm->mkNode(kind::EQUAL,
+                       nm->mkNode(kind::CARD, it->first),
+                       rhs);
+      lem = nm->mkNode(kind::IMPLIES, reason, lem);
       lem = Rewriter::rewrite(lem);
       d_external.d_out->lemma(lem);
     }
