@@ -2220,7 +2220,7 @@ std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex) {
   Assert(d_V.find(vertex) != d_V.end());
   if(d_E.find(vertex) != d_E.end()) {
     Assert(d_E[vertex].get().size() > 0);
-    for(auto const v : d_E[vertex].get()) {
+    for(TNode v : d_E[vertex].get()) {
       std::set<TNode> s = get_leaves(v);
       a.insert(s.begin(), s.end());
     }
