@@ -233,6 +233,8 @@ private:
   void print_graph();
   context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;
 
+  Node normalize(TNode);
+
   std::set<TNode> getNonEmptyLeaves(TNode);
 };/* class TheorySetsPrivate */
 

@@ -1346,6 +1346,8 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
     NodeManager* nm = NodeManager::currentNM();
     if(node.getKind() == kind::EMPTYSET) {
       if(d_typesAdded.find(node.getType()) == d_typesAdded.end()) {
+        Debug("sets-card") << "Creating skolem for emptyset for type "
+                           << node.getType() << std::endl;
         // set cardinality zero
         Node sk = nm->mkSkolem("scz_",  node.getType());
         d_typesAdded.insert(node.getType());
@@ -2180,6 +2182,9 @@ void TheorySetsPrivate::processCard(Theory::Effort level) {
  */
 
 void TheorySetsPrivate::add_edges(TNode source, TNode dest) {
+  Debug("sets-graph-details") << "[sets-graph-details] add_edges " << source
+                              << "[" << dest << "]" << std::endl;
+
   vector<TNode> V;
   V.push_back(dest);
   Assert(d_E.find(source) == d_E.end());
@@ -2187,6 +2192,9 @@ void TheorySetsPrivate::add_edges(TNode source, TNode dest) {
 }
 
 void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2) {
+  Debug("sets-graph-details") << "[sets-graph-details] add_edges " << source
+                              << "[" << dest1 << ", " << dest2 << "]" << std::endl;
+
   vector<TNode> V;
   V.push_back(dest1);
   V.push_back(dest2);
@@ -2195,6 +2203,10 @@ void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2) {
 }
 
 void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2, TNode dest3) {
+  Debug("sets-graph-details") << "[sets-graph-details] add_edges " << source
+                              << "[" << dest1 << ", " << dest2 << ", " << dest3 << "]"
+                              << std::endl;
+
   vector<TNode> V;
   V.push_back(dest1);
   V.push_back(dest2);
@@ -2204,6 +2216,16 @@ void TheorySetsPrivate::add_edges(TNode source, TNode dest1, TNode dest2, TNode 
 }
 
 void TheorySetsPrivate::add_edges(TNode source, const std::vector<TNode>& dests) {
+
+  if(Debug.isOn("sets-graph-details")) {
+    Debug("sets-graph-details") << "[sets-graph-details] add_edges " << source
+                                << "[";
+    for(TNode v: dests) {
+      Debug("sets-graph-details") << v << ", ";  
+    }
+    Debug("sets-graph-details") << "]" << std::endl;
+  }
+
   Assert(d_E.find(source) == d_E.end());
   d_E.insert(source, dests);
 }
@@ -2242,6 +2264,8 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
 
   Debug("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
                             << std::endl;
+  print_graph();
+  Trace("sets-graph") << std::endl;
   
   std::set<TNode> leaves3, leaves4;
   std::set_difference(leaves1.begin(), leaves1.end(), leaves2.begin(), leaves2.end(),
@@ -2275,14 +2299,14 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     for(TNode l1 : leaves3) {
       for(TNode l2 : leaves4) {
         Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
-        // l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
+        //l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
         children[l1].push_back(l1_inter_l2);
         children[l2].push_back(l1_inter_l2);
-        if(d_V.find(l1_inter_l2) != d_V.end()) {
-          // This case needs to be handled, currently not
-          Warning() << "This might create a loop. We need to handle this case. Probably merge the two nodes?" << std::endl;
-          Unhandled();
-        }
+        // if(d_V.find(l1_inter_l2) != d_V.end()) {
+        //   // This case needs to be handled, currently not
+        //   Warning() << "This might create a loop. We need to handle this case. Probably merge the two nodes?" << std::endl;
+        //   Unhandled();
+        // }
         add_node(l1_inter_l2);
       }
     }
@@ -2313,7 +2337,19 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     //               /* polarity = */ true,
     //               /* reason = */ EQUAL(eq_left, eq_right) );
   }
+
+  Trace("sets-graph") << std::endl;
+  print_graph();
+  Trace("sets-graph") << std::endl;
+
 }
+
+// Node TheorySetPrivate::normalize(TNode n) {
+//   Node ret;
+//   if(n.getKind() == kind::INTERSECTION) {
+    
+//   }
+// }
 
 void  TheorySetsPrivate::print_graph() {
   std::string tag = "sets-graph";
@@ -2333,8 +2369,29 @@ void  TheorySetsPrivate::print_graph() {
       Trace(tag) << std::endl;
     }
   }
+
+  if(Trace.isOn("sets-graph-dot")) {
+    std::ostringstream oss;
+    oss << "digraph G { ";
+    for(TNode v : d_V) {
+      if(d_E.find(v) != d_E.end()) {
+        for(TNode w : d_E[v].get()) {
+          //oss << v.getId() << " -> " << w.getId() << "; ";
+          oss << "\"" << v << "\" -> \"" << w << "\"; ";
+        }
+      } else {
+        oss << "\"" << v << "\";";
+      }
+    }
+    oss << "}";
+    Trace("sets-graph-dot") << "[sets-graph-dot] " << oss.str() << std::endl;
+  }
 }
 
+Node TheorySetsPrivate::normalize(TNode) {
+  
+}
+  
 void TheorySetsPrivate::processCard2(Theory::Effort level) {
   if(level != Theory::EFFORT_FULL) return;
 
@@ -2364,6 +2421,10 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         continue;
       }
 
+      Trace("sets-graph") << std::endl;
+      print_graph();
+      Trace("sets-graph") << std::endl;
+      
       add_node(n[0]);
 
       Trace("sets-card") << "[sets-card]  Processing " << n << " in eq cl of " << (*it) << std::endl;
@@ -2373,6 +2434,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
       Kind k = n[0].getKind();
 
       if(k == kind::SINGLETON) {
+        Trace("sets-card") << "[sets-card]  Introduce Singleton " << n[0] << std::endl;
         newLemmaGenerated = true;
         d_external.d_out->lemma(nm->mkNode(kind::EQUAL,
                                            n,
@@ -2390,6 +2452,8 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         continue;
       }
   
+      Trace("sets-card") << "[sets-card]  Introduce Term " << n[0] << std::endl;
+      
       Node s = min(n[0][0], n[0][1]);
       Node t = max(n[0][0], n[0][1]);
       bool isUnion = (k == kind::UNION);
@@ -2420,7 +2484,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         add_node(tMs);
 
         // for s
-        if(d_V.find(s) == d_V.end()) {
+        if(d_E.find(s) == d_E.end()) {
           Assert(d_E.find(s) == d_E.end());
           add_node(s);
           add_edges(s, sMt, sNt);
@@ -2430,11 +2494,12 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
                            nm->mkNode(kind::PLUS, card_sNt, card_sMt));
           d_external.d_out->lemma(lem);
         } else {
-          merge_nodes(get_leaves(s), get_leaves(sMt, sNt), d_trueNode);
+          Debug("sets-card") << "[sets-card] Already found in the graph, merging " << s << std::endl;
+          merge_nodes(get_leaves(s), get_leaves(sMt, sNt), EQUAL(s, s));
         }
 
         // for t
-        if(d_V.find(t) == d_V.end()) {
+        if(d_E.find(t) == d_E.end()) {
           Assert(d_E.find(t) == d_E.end());
           add_node(t);
           add_edges(t, sNt, tMs);
@@ -2444,11 +2509,18 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
                            nm->mkNode(kind::PLUS, card_sNt, card_tMs));
           d_external.d_out->lemma(lem);
         } else {
-          merge_nodes(get_leaves(t), get_leaves(sNt, tMs), d_trueNode);
+          Debug("sets-card") << "[sets-card] Already found in the graph, merging " << t << std::endl;
+          merge_nodes(get_leaves(t), get_leaves(sNt, tMs), EQUAL(t, t));
         }
 
         // for union
         if(isUnion) {
+          if(d_E.find(n[0]) != d_E.end()) {
+            // would need to do a merge operation
+            Unhandled();
+          }
+          add_node(n[0]);
+
           lem = nm->mkNode(kind::EQUAL,
                            n,     // card(s union t)
                            nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
@@ -2464,6 +2536,12 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         // updating the graph
       } else if(isUnion && processedInfo->second == false) {
       
+        if(d_E.find(n[0]) != d_E.end()) {
+          // would need to do a merge operation
+          Unhandled();
+        }
+        add_node(n[0]);
+
         Node sNt = nm->mkNode(kind::INTERSECTION, s, t);
         sNt = Rewriter::rewrite(sNt);
         Node sMt = nm->mkNode(kind::SETMINUS, s, t);
