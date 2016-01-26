@@ -2220,7 +2220,7 @@ std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex) {
   Assert(d_V.find(vertex) != d_V.end());
   if(d_E.find(vertex) != d_E.end()) {
     Assert(d_E[vertex].get().size() > 0);
-    for(auto const v : d_E[vertex].get()) {
+    for(TNode v : d_E[vertex].get()) {
       std::set<TNode> s = get_leaves(v);
       a.insert(s.begin(), s.end());
     }
@@ -2282,21 +2282,22 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
       }
     }
 
-    for(auto const l : children) {
-      add_edges(l.first, l.second);
+    for(std::map<TNode, vector<TNode> >::iterator it = children.begin();
+            it != children.end(); ++it) {
+      add_edges(it->first, it->second);
       Node rhs;
-      if(l.second.size() == 1) {
-        rhs = nm->mkNode(kind::CARD, l.second[0]);
+      if(it->second.size() == 1) {
+        rhs = nm->mkNode(kind::CARD, it->second[0]);
       } else {
         NodeBuilder<> nb(kind::PLUS);
-        for(TNode n : l.second) {
+        for(TNode n : it->second) {
           Node card_n = nm->mkNode(kind::CARD, n);
           nb << card_n;
         }
         rhs = Node(nb);
       }
       Node lem = nm->mkNode(kind::EQUAL,
-                            nm->mkNode(kind::CARD, l.first),
+                            nm->mkNode(kind::CARD, it->first),
                             rhs);
       lem = Rewriter::rewrite(lem);
       d_external.d_out->lemma(lem);
