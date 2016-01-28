@@ -2269,7 +2269,7 @@ void TheorySetsPrivate::add_edges(TNode source, const std::vector<TNode>& dests)
   if(Debug.isOn("sets-graph-details")) {
     Debug("sets-graph-details") << "[sets-graph-details] add_edges " << source
                                 << "  [";
-    for(TNode v: dests) {
+    BOOST_FOREACH(TNode v, dests) {
       Debug("sets-graph-details") << v << ", ";  
     }
     Debug("sets-graph-details") << "]" << std::endl;
@@ -2308,7 +2308,7 @@ std::set<TNode> TheorySetsPrivate::non_empty(std::set<TNode> vertices)
 {
   std::set<TNode> ret;
   NodeManager* nm = NodeManager::currentNM();
-  for(TNode vertex: vertices) {
+  BOOST_FOREACH(TNode vertex, vertices) {
     Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(vertex.getType())));
     if(!d_equalityEngine.areEqual(vertex, emptySet)) {
       ret.insert(vertex);
@@ -2323,7 +2323,7 @@ std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex) {
   Assert(d_V.find(vertex) != d_V.end());
   if(d_E.find(vertex) != d_E.end()) {
     Assert(d_E[vertex].get().size() > 0);
-    for(TNode v : d_E[vertex].get()) {
+    BOOST_FOREACH(TNode v , d_E[vertex].get()) {
       std::set<TNode> s = get_leaves(v);
       a.insert(s.begin(), s.end());
     }
@@ -2358,7 +2358,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
   if(leaves3.size() == 0) {
     Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 1" << std::endl;
     // make everything in leaves4 empty
-    for(TNode v : leaves4) {
+    BOOST_FOREACH(TNode v , leaves4) {
       Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
       if(!d_equalityEngine.hasTerm(emptySet)) {
         d_equalityEngine.addTerm(emptySet);
@@ -2370,7 +2370,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
   } else if(leaves4.size() == 0) {
     Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 2" << std::endl;
     // make everything in leaves3 empty
-    for(TNode v : leaves3) {
+    BOOST_FOREACH(TNode v , leaves3) {
       Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
       if(!d_equalityEngine.hasTerm(emptySet)) {
         d_equalityEngine.addTerm(emptySet);
@@ -2389,8 +2389,8 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     std::map<TNode, vector<TNode> > children;
   
     // Merge Equality 3
-    for(TNode l1 : leaves3) {
-      for(TNode l2 : leaves4) {
+    BOOST_FOREACH(TNode l1 , leaves3) {
+      BOOST_FOREACH(TNode l2 , leaves4) {
         Node l1_inter_l2 = nm->mkNode(kind::INTERSECTION, min(l1, l2), max(l1, l2));
         //l1_inter_l2 = Rewriter::rewrite(l1_inter_l2);
         children[l1].push_back(l1_inter_l2);
@@ -2412,7 +2412,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
         rhs = nm->mkNode(kind::CARD, it->second[0]);
       } else {
         NodeBuilder<> nb(kind::PLUS);
-        for(TNode n : it->second) {
+        BOOST_FOREACH(TNode n , it->second) {
           Node card_n = nm->mkNode(kind::CARD, n);
           nb << card_n;
         }
