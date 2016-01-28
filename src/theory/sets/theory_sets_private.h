@@ -113,6 +113,15 @@ private:
   /** generate and send out conflict node */
   void conflict(TNode, TNode);
 
+  /** send out a lemma */
+  enum SetsLemmaTag {
+    SETS_LEMMA_DISEQUAL,
+    SETS_LEMMA_MEMBER,
+    SETS_LEMMA_GRAPH,
+    SETS_LEMMA_OTHER
+  };
+  void lemma(Node n, SetsLemmaTag t);
+
   class TermInfoManager {
     TheorySetsPrivate& d_theory;
     context::Context* d_context;
@@ -230,12 +239,14 @@ private:
   void merge_nodes(std::set<TNode> a, std::set<TNode> b, TNode reason);
   std::set<TNode> get_leaves(TNode vertex);
   std::set<TNode> get_leaves(TNode vertex1, TNode vertex2);
+  std::set<TNode> non_empty(std::set<TNode> vertices);
   void print_graph();
   context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;
 
   Node normalize(TNode);
 
   std::set<TNode> getNonEmptyLeaves(TNode);
+  CDNodeSet d_lemmasGenerated;
 };/* class TheorySetsPrivate */
 
 

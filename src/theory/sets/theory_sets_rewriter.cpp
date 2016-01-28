@@ -233,44 +233,46 @@ RewriteResponse TheorySetsRewriter::postRewrite(TNode node) {
       if( newNode!=node ){
         return RewriteResponse(REWRITE_DONE, newNode);
       }
+    // }else{
+    //   Node emptySet = nm->mkConst(EmptySet(nm->toType(node[0].getType())));
+    //   if(node[0].isConst() && node[1].isConst()) {
+    //     std::set<Node> left = NormalForm::getElementsFromNormalConstant(node[0]);
+    //     std::set<Node> right = NormalForm::getElementsFromNormalConstant(node[1]);
+    //     std::set<Node> newSet;
+    //     std::set_intersection(left.begin(), left.end(), right.begin(), right.end(),
+    //             std::inserter(newSet, newSet.begin()));
+    //     Node newNode = NormalForm::elementsToSet(newSet, node.getType());
+    //     Assert(newNode.isConst());
+    //     Trace("sets-postrewrite") << "Sets::postRewrite returning " << newNode << std::endl;
+    //     return RewriteResponse(REWRITE_DONE, newNode);
+    //   } else {
+    //     return flattenNode(node, /* trivialNode = */ emptySet, /* skipNode = */ Node());
+    //   }
+    // }
     }else{
-      Node emptySet = nm->mkConst(EmptySet(nm->toType(node[0].getType())));
-      if(node[0].isConst() && node[1].isConst()) {
+      if(node[0] == node[1]) {
+        Trace("sets-postrewrite") << "Sets::postRewrite returning " << node[0] << std::endl;
+        return RewriteResponse(REWRITE_DONE, node[0]);
+      } else if(node[0].getKind() == kind::EMPTYSET) {
+        return RewriteResponse(REWRITE_DONE, node[0]);
+      } else if(node[1].getKind() == kind::EMPTYSET) {
+        return RewriteResponse(REWRITE_DONE, node[1]);
+      } else if(node[0].isConst() && node[1].isConst()) {
         std::set<Node> left = NormalForm::getElementsFromNormalConstant(node[0]);
         std::set<Node> right = NormalForm::getElementsFromNormalConstant(node[1]);
         std::set<Node> newSet;
         std::set_intersection(left.begin(), left.end(), right.begin(), right.end(),
-                std::inserter(newSet, newSet.begin()));
+                              std::inserter(newSet, newSet.begin()));
         Node newNode = NormalForm::elementsToSet(newSet, node.getType());
         Assert(newNode.isConst());
         Trace("sets-postrewrite") << "Sets::postRewrite returning " << newNode << std::endl;
         return RewriteResponse(REWRITE_DONE, newNode);
-      } else {
-        return flattenNode(node, /* trivialNode = */ emptySet, /* skipNode = */ Node());
+      } else if (node[0] > node[1]) {
+        Node newNode = nm->mkNode(node.getKind(), node[1], node[0]);
+        Trace("sets-postrewrite") << "Sets::postRewrite returning " << newNode << std::endl;
+        return RewriteResponse(REWRITE_DONE, newNode);
       }
     }
-    // if(node[0] == node[1]) {
-    //   Trace("sets-postrewrite") << "Sets::postRewrite returning " << node[0] << std::endl;
-    //   return RewriteResponse(REWRITE_DONE, node[0]);
-    // } else if(node[0].getKind() == kind::EMPTYSET) {
-    //   return RewriteResponse(REWRITE_DONE, node[0]);
-    // } else if(node[1].getKind() == kind::EMPTYSET) {
-    //   return RewriteResponse(REWRITE_DONE, node[1]);
-    // } else if(node[0].isConst() && node[1].isConst()) {
-    //   std::set<Node> left = NormalForm::getElementsFromNormalConstant(node[0]);
-    //   std::set<Node> right = NormalForm::getElementsFromNormalConstant(node[1]);
-    //   std::set<Node> newSet;
-    //   std::set_intersection(left.begin(), left.end(), right.begin(), right.end(),
-    //     		  std::inserter(newSet, newSet.begin()));
-    //   Node newNode = NormalForm::elementsToSet(newSet, node.getType());
-    //   Assert(newNode.isConst());
-    //   Trace("sets-postrewrite") << "Sets::postRewrite returning " << newNode << std::endl;
-    //   return RewriteResponse(REWRITE_DONE, newNode);
-    // } else if (node[0] > node[1]) {
-    //   Node newNode = nm->mkNode(node.getKind(), node[1], node[0]);
-    //   Trace("sets-postrewrite") << "Sets::postRewrite returning " << newNode << std::endl;
-    //   return RewriteResponse(REWRITE_DONE, newNode);
-    // }
     break;
   }//kind::INTERSECION
 
