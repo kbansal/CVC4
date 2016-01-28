@@ -895,7 +895,8 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
   std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> slackElements;
   BOOST_FOREACH( TNode setterm, leaves ) {
     if(setterm.getKind() == kind::EMPTYSET) { continue; }
-    Assert(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) != d_cardTerms.end());
+    // Assert(d_cardTerms.find(nm->mkNode(kind::CARD,setterm)) != d_cardTerms.end()); // for processCard
+    Assert(d_V.find(setterm) != d_V.end());
     Node cardValNode = d_external.d_valuation.getModelValue(nm->mkNode(kind::CARD,setterm));
     Rational cardValRational = cardValNode.getConst<Rational>();
     Assert(cardValRational.isIntegral());
@@ -2299,6 +2300,8 @@ void TheorySetsPrivate::add_node(TNode vertex) {
             SETS_LEMMA_OTHER);
     }
   }
+  d_equalityEngine.addTerm(vertex);
+  d_termInfoManager->addTerm(vertex);
 }
 
 std::set<TNode> TheorySetsPrivate::non_empty(std::set<TNode> vertices)
@@ -2327,7 +2330,7 @@ std::set<TNode> TheorySetsPrivate::get_leaves(TNode vertex) {
   } else {
     a.insert(vertex);
   }
-  a = non_empty(a);
+  // a = non_empty(a);
   return a;
 }
 
@@ -2357,6 +2360,9 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     // make everything in leaves4 empty
     for(TNode v : leaves4) {
       Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
+      if(!d_equalityEngine.hasTerm(emptySet)) {
+        d_equalityEngine.addTerm(emptySet);
+      }
       learnLiteral( /* atom = */ EQUAL(v, emptySet),
                     /* polarity = */ true,
                     /* reason = */  reason);
@@ -2366,6 +2372,9 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     // make everything in leaves3 empty
     for(TNode v : leaves3) {
       Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(v.getType())));
+      if(!d_equalityEngine.hasTerm(emptySet)) {
+        d_equalityEngine.addTerm(emptySet);
+      }
       learnLiteral( /* atom = */ EQUAL(v, emptySet),
                     /* polarity = */ true,
                     /* reason = */ reason );
@@ -2605,7 +2614,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
           add_edges(n[0], sMt, sNt, tMs);
         }
 
-        newLemmaGenerated = true;
+        //newLemmaGenerated = true;
         d_processedCardPairs.insert(make_pair(make_pair(s, t), isUnion));
 
         // updating the graph
@@ -2658,17 +2667,18 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     newLemmaGenerated = true;
   }
   
-  if(newLemmaGenerated) {
-    Trace("sets-card") << "[sets-card] New introduce done. Returning." << std::endl;
-    return;
-  }
+  // if(newLemmaGenerated) {
+  //   Trace("sets-card") << "[sets-card] New introduce done. Returning." << std::endl;
+  //   return;
+  // }
 
   leaves.clear();
   for(TNode v:d_V)
-    if(d_E.find(v) == d_E.end())
+    if(d_E.find(v) == d_E.end()) {
       leaves.insert(v);
+    }
 
-  Assert(!newLemmaGenerated);
+  // Assert(!newLemmaGenerated);
 
   // Elements being either equal or disequal
   
@@ -2697,10 +2707,10 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     }
   }
 
-  if(newLemmaGenerated) {
-    Trace("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
-    return;
-  }
+  // if(newLemmaGenerated) {
+  //   Trace("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
+  //   return;
+  // }
 
 
   // Guess leaf nodes being empty or non-empty
@@ -2729,18 +2739,20 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     }
   }
 
-  if(newLemmaGenerated) {
-    Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
-    return;
-  }
+  // if(newLemmaGenerated) {
+  //   Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
+  //   return;
+  // }
 
   // Assert Lower bound
   for(typeof(leaves.begin()) it = leaves.begin();
       it != leaves.end(); ++it) {
-    Assert(d_equalityEngine.hasTerm(*it));
-    Node n = d_equalityEngine.getRepresentative(*it);
+    // Assert(d_equalityEngine.hasTerm(*it));
+    //Node n = d_equalityEngine.getRepresentative(*it);
+    Node n = (*it);
+    if(!d_equalityEngine.hasTerm(n)) { continue; }
     Assert(n.getKind() == kind::EMPTYSET || leaves.find(n) != leaves.end());
-    if(n != *it) continue;
+    // if(n != *it) continue;
     const CDTNodeList* l = d_termInfoManager->getMembers(n);
     std::set<TNode> elems;
     for(typeof(l->begin()) l_it = l->begin(); l_it != l->end(); ++l_it) {
