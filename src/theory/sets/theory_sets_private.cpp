@@ -887,9 +887,9 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
 
   //processCard2 begin
   leaves.clear();
-  for(TNode v:d_V)
-    if(d_E.find(v) == d_E.end())
-      leaves.insert(v);
+  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it)
+    if(d_E.find(*it) == d_E.end())
+      leaves.insert(*it);
   //processCard2 end
   
   std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> slackElements;
@@ -2448,12 +2448,13 @@ void  TheorySetsPrivate::print_graph() {
   std::string tag = "sets-graph";
   if(Trace.isOn("sets-graph")) {
     Trace(tag) << "[sets-graph] Graph : " << std::endl;
-    for(TNode v : d_V) {
-    // BOOST_FOREACH(TNode v, d_V) {
+    for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+      TNode v = *it;
+      // BOOST_FOREACH(TNode v, d_V) {
       Trace(tag) << "[" << tag << "]  " << v << " : ";
       // BOOST_FOREACH(TNode w, d_E[v].get()) {
       if(d_E.find(v) != d_E.end()) {
-        for(TNode w : d_E[v].get()) {
+        BOOST_FOREACH(TNode w, d_E[v].get()) {
           Trace(tag) << w << ", ";
         }
       } else {
@@ -2466,9 +2467,10 @@ void  TheorySetsPrivate::print_graph() {
   if(Trace.isOn("sets-graph-dot")) {
     std::ostringstream oss;
     oss << "digraph G { ";
-    for(TNode v : d_V) {
+    for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+      TNode v = *it;
       if(d_E.find(v) != d_E.end()) {
-        for(TNode w : d_E[v].get()) {
+        BOOST_FOREACH(TNode w, d_E[v].get()) {
           //oss << v.getId() << " -> " << w.getId() << "; ";
           oss << "\"" << v << "\" -> \"" << w << "\"; ";
         }
@@ -2673,10 +2675,12 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
   // }
 
   leaves.clear();
-  for(TNode v:d_V)
+  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+    TNode v = *it;
     if(d_E.find(v) == d_E.end()) {
       leaves.insert(v);
     }
+  }
 
   // Assert(!newLemmaGenerated);
 
