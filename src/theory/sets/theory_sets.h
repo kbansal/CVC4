@@ -66,6 +66,8 @@ public:
 
   void preRegisterTerm(TNode node);
 
+  void presolve();
+
   void propagate(Effort);
 
   void setMasterEqualityEngine(eq::EqualityEngine* eq);

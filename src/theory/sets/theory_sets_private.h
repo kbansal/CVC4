@@ -66,6 +66,8 @@ public:
 
   void preRegisterTerm(TNode node);
 
+  void presolve();
+
   void propagate(Theory::Effort);
 
 private:

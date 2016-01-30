@@ -1286,7 +1286,7 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_allSetEqualitiesSoFar(c),
   d_lemmasGenerated(u),
   d_newLemmaGenerated(false),
-  d_relTerms(c)
+  d_relTerms(u)
 {
   d_termInfoManager = new TermInfoManager(*this, c, &d_equalityEngine);
 
@@ -1483,6 +1483,16 @@ void TheorySetsPrivate::preRegisterTerm(TNode node)
       registerCard(NodeManager::currentNM()->mkNode(kind::CARD, node));
     }
   }
+}
+
+
+void TheorySetsPrivate::presolve() {
+
+  for(typeof(d_termInfoManager->d_terms.begin()) it = d_termInfoManager->d_terms.begin();
+      it !=  d_termInfoManager->d_terms.end(); ++it) {
+    d_relTerms.insert(*it);
+  }
+
 }
 
 void TheorySetsPrivate::doCustomRegistration(TNode atom, bool polarity) {
@@ -2617,34 +2627,34 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
 
   NodeManager* nm = NodeManager::currentNM();
 
-  std::set<Node> relTerms;
-  d_external.computeRelevantTerms(relTerms, false);
-  if(Debug.isOn("sets-relterms")) {
-    Debug("sets-relterms") << "[sets-relterms] ";
-    for(typeof(relTerms.begin()) it = relTerms.begin();
-        it != relTerms.end(); ++it ) {
-      Debug("sets-relterms") << (*it) << ", ";
-    }
-    Debug("sets-relterms") << "\n";
-  }
-  {
-    typeof(relTerms.begin()) it = relTerms.begin();
-    while(it != relTerms.end()) {
-      if( ! (*it).getType().isSet() ) {
-        typeof(relTerms.begin()) toDelete = it;
-        ++it;
-        relTerms.erase(toDelete);
-      }
-      else {
-        ++it;
-      }
-    }
-  }
+  // std::set<Node> relTerms;
+  // d_external.computeRelevantTerms(relTerms, false);
+  // if(Debug.isOn("sets-relterms")) {
+  //   Debug("sets-relterms") << "[sets-relterms] ";
+  //   for(typeof(relTerms.begin()) it = relTerms.begin();
+  //       it != relTerms.end(); ++it ) {
+  //     Debug("sets-relterms") << (*it) << ", ";
+  //   }
+  //   Debug("sets-relterms") << "\n";
+  // }
+  // {
+  //   typeof(relTerms.begin()) it = relTerms.begin();
+  //   while(it != relTerms.end()) {
+  //     if( ! (*it).getType().isSet() ) {
+  //       typeof(relTerms.begin()) toDelete = it;
+  //       ++it;
+  //       relTerms.erase(toDelete);
+  //     }
+  //     else {
+  //       ++it;
+  //     }
+  //   }
+  // }
   
   if(Debug.isOn("sets-relterms")) {
     Debug("sets-relterms") << "[sets-relterms] ";
-    for(typeof(relTerms.begin()) it = relTerms.begin();
-        it != relTerms.end(); ++it ) {
+    for(typeof(d_relTerms.begin()) it = d_relTerms.begin();
+        it != d_relTerms.end(); ++it ) {
       Debug("sets-relterms") << (*it) << ", ";
     }
     Debug("sets-relterms") << "\n";
@@ -2704,7 +2714,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         continue;
       }
 
-      if(relTerms.find(n[0]) == relTerms.end()) {
+      if(d_relTerms.find(n[0]) == d_relTerms.end()) {
         // not relevant, skip
         continue;
       }
@@ -2831,6 +2841,13 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
   while(!d_graphMergesPending.empty()) {
     std::pair<TNode,TNode> np = d_graphMergesPending.front();
     d_graphMergesPending.pop();
+
+    Debug("sets-card") << "[sets-card] Equality " << np.first << " " << np.second << std::endl;
+    if(np.first.getKind() == kind::EMPTYSET || np.second.getKind() == kind::EMPTYSET) {
+      Debug("sets-card") << "[sets-card]    skipping merge as one side is empty set" << std::endl;
+      continue;
+    }
+
     if(d_V.find(np.first) == d_V.end() || d_V.find(np.second) == d_V.end()) {
       Assert((d_V.find(np.first) == d_V.end()));
       Assert((d_V.find(np.second) == d_V.end()));
