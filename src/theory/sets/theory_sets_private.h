@@ -261,7 +261,7 @@ private:
   void add_edges(TNode source, TNode dest1, TNode dest2, TNode dest3);
   void add_edges(TNode source, const std::vector<TNode>& dests);
   void add_node(TNode vertex);
-  void merge_nodes(std::set<TNode> a, std::set<TNode> b, TNode reason);
+  void merge_nodes(std::set<TNode> a, std::set<TNode> b, Node reason);
   std::set<TNode> get_leaves(Node vertex);
   std::set<TNode> get_leaves(Node vertex1, Node vertex2);
   std::set<TNode> non_empty(std::set<TNode> vertices);

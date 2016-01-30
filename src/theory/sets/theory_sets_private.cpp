@@ -1233,7 +1233,13 @@ Node TheorySetsPrivate::getLemma() {
     Node x = NodeManager::currentNM()->mkSkolem("sde_",  elementType);
     Node l1 = MEMBER(x, n[0]), l2 = MEMBER(x, n[1]);
 
-    lemma = OR(n, AND(l1, NOT(l2)), AND(NOT(l1), l2));
+    if(n[0].getKind() == kind::EMPTYSET) {
+      lemma = OR(n, l2);
+    } else if(n[1].getKind() == kind::EMPTYSET) {
+      lemma = OR(n, l1);
+    } else {
+      lemma = OR(n, AND(l1, NOT(l2)), AND(NOT(l1), l2));
+    }
   }
 
   Debug("sets-lemma") << "[sets-lemma] Generating for " << n
@@ -2425,7 +2431,7 @@ std::set<TNode> TheorySetsPrivate::get_leaves(Node vertex1, Node vertex2) {
   return t;
 }
 
-void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, TNode reason) {
+void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, Node reason) {
   NodeManager* nm = NodeManager::currentNM();
 
   Debug("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
@@ -2433,10 +2439,31 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
   print_graph();
   Trace("sets-graph") << std::endl;
   
+  // do non-empty reasoning stuff
+  std::vector<TNode> leaves1_nonempty, leaves2_nonempty;
+  BOOST_FOREACH(TNode l, leaves1) {
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l.getType())));
+    if(d_equalityEngine.getRepresentative(l).getKind() != kind::EMPTYSET) {
+      leaves1_nonempty.push_back(l);
+    } else {
+      reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
+    }
+  }
+  BOOST_FOREACH(TNode l, leaves2) {
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType(l.getType())));
+    if(d_equalityEngine.getRepresentative(l).getKind() != kind::EMPTYSET) {
+      leaves2_nonempty.push_back(l);
+    } else {
+      reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
+    }
+  }
+        
   std::set<TNode> leaves3, leaves4;
-  std::set_difference(leaves1.begin(), leaves1.end(), leaves2.begin(), leaves2.end(),
+  std::set_difference(leaves1_nonempty.begin(), leaves1_nonempty.end(),
+                      leaves2_nonempty.begin(), leaves2_nonempty.end(),
                       std::inserter(leaves3, leaves3.begin()));
-  std::set_difference(leaves2.begin(), leaves2.end(), leaves1.begin(), leaves1.end(),
+  std::set_difference(leaves2_nonempty.begin(), leaves2_nonempty.end(),
+                      leaves1_nonempty.begin(), leaves1_nonempty.end(),
                       std::inserter(leaves4, leaves4.begin()));
 
   if(leaves3.size() == 0) {
@@ -2446,6 +2473,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
       Node zero = nm->mkConst(Rational(0));
       if(!d_equalityEngine.hasTerm(zero)) {
         d_equalityEngine.addTerm(zero);
+        d_termInfoManager->addTerm(zero);
       }
       learnLiteral( /* atom = */ EQUAL(nm->mkNode(kind::CARD, v), zero),
                     /* polarity = */ true,
@@ -2459,6 +2487,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
       Node zero = nm->mkConst(Rational(0));
       if(!d_equalityEngine.hasTerm(zero)) {
         d_equalityEngine.addTerm(zero);
+        d_termInfoManager->addTerm(zero);
       }
       learnLiteral( /* atom = */ EQUAL(nm->mkNode(kind::CARD, v), zero),
                     /* polarity = */ true,
@@ -2469,6 +2498,8 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     Debug("sets-graph-merge") << "[sets-graph-merge]  Merge Equality 3" << std::endl;
     Debug("sets-graph-merge") << "[sets-graph-merge]    #left= " << leaves1.size()
                               << " #right= " << leaves2.size()
+                              << " #left non-empty= " << leaves1_nonempty.size()
+                              << " #right non-empty= " << leaves2_nonempty.size()
                               << " #left-right= " << leaves3.size()
                               << " #right-left= " << leaves4.size() << std::endl;
     
@@ -2574,7 +2605,7 @@ Node TheorySetsPrivate::eqSoFar() {
     return nm->mkNode(kind::AND, V);
   }
 }   
-  
+
 void TheorySetsPrivate::processCard2(Theory::Effort level) {
   if(level != Theory::EFFORT_FULL) return;
 
@@ -2588,6 +2619,27 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
 
   std::set<Node> relTerms;
   d_external.computeRelevantTerms(relTerms, false);
+  if(Debug.isOn("sets-relterms")) {
+    Debug("sets-relterms") << "[sets-relterms] ";
+    for(typeof(relTerms.begin()) it = relTerms.begin();
+        it != relTerms.end(); ++it ) {
+      Debug("sets-relterms") << (*it) << ", ";
+    }
+    Debug("sets-relterms") << "\n";
+  }
+  {
+    typeof(relTerms.begin()) it = relTerms.begin();
+    while(it != relTerms.end()) {
+      if( ! (*it).getType().isSet() ) {
+        typeof(relTerms.begin()) toDelete = it;
+        ++it;
+        relTerms.erase(toDelete);
+      }
+      else {
+        ++it;
+      }
+    }
+  }
   
   if(Debug.isOn("sets-relterms")) {
     Debug("sets-relterms") << "[sets-relterms] ";
@@ -2596,6 +2648,42 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
       Debug("sets-relterms") << (*it) << ", ";
     }
     Debug("sets-relterms") << "\n";
+  }
+
+  // Guess leaf nodes being empty or non-empty
+  leaves.clear();
+  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+    TNode v = *it;
+    if(d_E.find(v) == d_E.end()) {
+      leaves.insert(v);
+    }
+  }
+  d_statistics.d_numLeaves.setData(leaves.size());
+  d_statistics.d_numLeavesMax.maxAssign(leaves.size());
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    bool generateLemma = true;
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType((*it).getType())));
+    if(d_equalityEngine.hasTerm(*it)) {
+      Node n = d_equalityEngine.getRepresentative(*it);
+      if(n.getKind() == kind::EMPTYSET) continue;
+      if(d_termInfoManager->getMembers(n)->size() > 0) continue;
+      if(!d_equalityEngine.hasTerm(emptySet)) {
+        d_equalityEngine.addTerm(emptySet);
+      }
+      if(d_equalityEngine.areDisequal(n, emptySet, false)) {
+        generateLemma = false;
+      }
+    }
+    if(generateLemma) {
+      Node lem = nm->mkNode(kind::EQUAL, (*it), emptySet);
+      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
+      //Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
+      d_cardLowerLemmaCache.insert(lem);
+      lemma(lem, SETS_LEMMA_GRAPH);
+    }
+  }
+  if(d_newLemmaGenerated) {
+    return;
   }
 
   // Introduce lemma
@@ -2799,34 +2887,6 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
   if(d_newLemmaGenerated) {
     Trace("sets-card") << "[sets-card] Members arrangments lemmas. Returning." << std::endl;
     return;
-  }
-
-
-  // Guess leaf nodes being empty or non-empty
-  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
-    bool generateLemma = true;
-    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType((*it).getType())));
-    if(d_equalityEngine.hasTerm(*it)) {
-      Node n = d_equalityEngine.getRepresentative(*it);
-      if(n.getKind() == kind::EMPTYSET) continue;
-      if(d_termInfoManager->getMembers(n)->size() > 0) continue;
-      if(!d_equalityEngine.hasTerm(emptySet)) {
-        d_equalityEngine.addTerm(emptySet);
-      }
-      if(d_equalityEngine.areDisequal(n, emptySet, false)) {
-        generateLemma = false;
-      }
-    }
-    if(generateLemma) {
-      Node lem = nm->mkNode(kind::EQUAL, (*it), emptySet);
-      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
-      //Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
-      d_cardLowerLemmaCache.insert(lem);
-      lemma(lem, SETS_LEMMA_GRAPH);
-      if(d_newLemmaGenerated) {
-        break;
-      }
-    }
   }
 
   if(d_newLemmaGenerated) {
