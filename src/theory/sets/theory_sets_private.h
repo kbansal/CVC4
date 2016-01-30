@@ -76,6 +76,8 @@ private:
   class Statistics {
   public:
     TimerStat d_getModelValueTime;
+    TimerStat d_mergeTime;
+    TimerStat d_processCard2Time;
     IntStat d_memberLemmas;
     IntStat d_disequalityLemmas;
     IntStat d_numVertices;
@@ -241,7 +243,7 @@ private:
   /***** Cardinality handling *****/
   CDNodeSet d_cardTerms;
   std::set<TypeNode> d_typesAdded;
-  std::set<Node> d_processedCardTerms;
+  CDNodeSet d_processedCardTerms;
   std::map<std::pair<Node, Node>, bool> d_processedCardPairs;
   CDNodeSet d_cardLowerLemmaCache;
   void registerCard(TNode);
@@ -266,6 +268,7 @@ private:
   void merge_nodes(std::set<TNode> a, std::set<TNode> b, Node reason);
   std::set<TNode> get_leaves(Node vertex);
   std::set<TNode> get_leaves(Node vertex1, Node vertex2);
+  std::set<TNode> get_leaves(Node vertex1, Node vertex2, Node vertex3);
   std::set<TNode> non_empty(std::set<TNode> vertices);
   void print_graph();
   context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;

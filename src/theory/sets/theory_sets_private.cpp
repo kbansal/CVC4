@@ -1057,7 +1057,9 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
 
 
 TheorySetsPrivate::Statistics::Statistics() :
-    d_getModelValueTime("theory::sets::getModelValueTime")
+  d_getModelValueTime("theory::sets::getModelValueTime")
+  , d_mergeTime("theory::sets::merge_nodes::time")
+  , d_processCard2Time("theory::sets::processCard2::time")
   , d_memberLemmas("theory::sets::lemmas::member", 0)
   , d_disequalityLemmas("theory::sets::lemmas::disequality", 0)
   , d_numVertices("theory::sets::vertices", 0)
@@ -1068,6 +1070,8 @@ TheorySetsPrivate::Statistics::Statistics() :
   , d_numLeavesMax("theory::sets::leaves-max", 0)
 {
   StatisticsRegistry::registerStat(&d_getModelValueTime);
+  StatisticsRegistry::registerStat(&d_mergeTime);
+  StatisticsRegistry::registerStat(&d_processCard2Time);
   StatisticsRegistry::registerStat(&d_memberLemmas);
   StatisticsRegistry::registerStat(&d_disequalityLemmas);
   StatisticsRegistry::registerStat(&d_numVertices);
@@ -1081,6 +1085,8 @@ TheorySetsPrivate::Statistics::Statistics() :
 
 TheorySetsPrivate::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_getModelValueTime);
+  StatisticsRegistry::unregisterStat(&d_mergeTime);
+  StatisticsRegistry::unregisterStat(&d_processCard2Time);
   StatisticsRegistry::unregisterStat(&d_memberLemmas);
   StatisticsRegistry::unregisterStat(&d_disequalityLemmas);
   StatisticsRegistry::unregisterStat(&d_numVertices);
@@ -1273,7 +1279,7 @@ TheorySetsPrivate::TheorySetsPrivate(TheorySets& external,
   d_scrutinize(NULL),
   d_cardTerms(c),
   d_typesAdded(),
-  d_processedCardTerms(),
+  d_processedCardTerms(c),
   d_processedCardPairs(),
   d_cardLowerLemmaCache(u),
   edgesFd(),
@@ -2441,7 +2447,18 @@ std::set<TNode> TheorySetsPrivate::get_leaves(Node vertex1, Node vertex2) {
   return t;
 }
 
+std::set<TNode> TheorySetsPrivate::get_leaves(Node vertex1, Node vertex2, Node vertex3) {
+  std::set<TNode> s = get_leaves(vertex1);
+  std::set<TNode> t = get_leaves(vertex2);
+  std::set<TNode> u = get_leaves(vertex3);
+  t.insert(s.begin(), s.end());
+  t.insert(u.begin(), u.end());
+  return t;
+}
+
 void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, Node reason) {
+  CodeTimer codeTimer(d_statistics.d_mergeTime);
+
   NodeManager* nm = NodeManager::currentNM();
 
   Debug("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
@@ -2617,6 +2634,8 @@ Node TheorySetsPrivate::eqSoFar() {
 }   
 
 void TheorySetsPrivate::processCard2(Theory::Effort level) {
+  CodeTimer codeTimer(d_statistics.d_processCard2Time);
+
   if(level != Theory::EFFORT_FULL) return;
 
   d_statistics.d_numVertices.setData(d_V.size());
@@ -2705,14 +2724,14 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
 
       Node n = nm->mkNode(kind::CARD, (*j));
 
-      // if(d_processedCardTerms.find(n) != d_processedCardTerms.end()) {
-      //   continue;
-      // }
-
-      if(d_V.find(n[0]) != d_V.end()) {
-        // already in the graph
+      if(d_processedCardTerms.find(n) != d_processedCardTerms.end()) {
         continue;
       }
+
+      // if(d_V.find(n[0]) != d_V.end()) {
+      //   // already in the graph
+      //   continue;
+      // }
 
       if(d_relTerms.find(n[0]) == d_relTerms.end()) {
         // not relevant, skip
@@ -2727,7 +2746,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
 
       Trace("sets-card") << "[sets-card]  Processing " << n << " in eq cl of " << (*it) << std::endl;
 
-      // d_processedCardTerms.insert(n);
+      d_processedCardTerms.insert(n);
       
       Kind k = n[0].getKind();
 
@@ -2768,19 +2787,25 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
       add_node(sNt);
       add_node(tMs);
 
+
       // for union
       if(isUnion) {
-        Assert(d_E.find(n[0]) == d_E.end());
+        if(d_E.find(n[0]) != d_E.end()) {
+          // do a merge of current leaves of d_E with 
+          // sNT sMT tMs
+          Debug("sets-card") << "[sets-card] Already found in the graph, merging " << n[0] << std::endl;
+          merge_nodes(get_leaves(n[0]), get_leaves(sMt, sNt, tMs), eqSoFar());
+        } else {
+          add_node(n[0]);
 
-        add_node(n[0]);
+          lem = nm->mkNode(kind::EQUAL,
+                           n,     // card(s union t)
+                           nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
+          lemma(lem, SETS_LEMMA_GRAPH);
 
-        lem = nm->mkNode(kind::EQUAL,
-                         n,     // card(s union t)
-                         nm->mkNode(kind::PLUS, card_sNt, card_sMt, card_tMs));
-        lemma(lem, SETS_LEMMA_GRAPH);
-
-        Assert(d_E.find(n[0]) == d_E.end());
-        add_edges(n[0], sMt, sNt, tMs);
+          Assert(d_E.find(n[0]) == d_E.end());
+          add_edges(n[0], sMt, sNt, tMs);
+        }
       }
 
       // for s
@@ -2870,13 +2895,14 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
       leaves.insert(v);
     }
   }
+  Trace("sets-card") << "[sets-card] # leaves = " << leaves.size() << std::endl;
   d_statistics.d_numLeaves.setData(leaves.size());
   d_statistics.d_numLeavesMax.maxAssign(leaves.size());
 
   Assert(!d_newLemmaGenerated);
 
   // Elements being either equal or disequal
-  
+  Trace("sets-card") << "[sets-card] Processing elements equality/disequal to each other" << std::endl;
   for(typeof(leaves.begin()) it = leaves.begin();
       it != leaves.end(); ++it) {
     if(!d_equalityEngine.hasTerm(*it)) continue;
@@ -2906,19 +2932,24 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     return;
   }
 
-  if(d_newLemmaGenerated) {
-    Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
-    return;
-  }
+  // if(d_newLemmaGenerated) {
+  //   Trace("sets-card") << "[sets-card] New guessing leaves being empty done." << std::endl;
+  //   return;
+  // }
 
   // Assert Lower bound
+  Trace("sets-card") << "[sets-card] Processing assert lower bound" << std::endl;
   for(typeof(leaves.begin()) it = leaves.begin();
       it != leaves.end(); ++it) {
-    // Assert(d_equalityEngine.hasTerm(*it));
-    //Node n = d_equalityEngine.getRepresentative(*it);
-    Node n = (*it);
-    if(!d_equalityEngine.hasTerm(n)) { continue; }
-    Assert(n.getKind() == kind::EMPTYSET || leaves.find(n) != leaves.end());
+    Trace("sets-cardlower") << "[sets-cardlower] Card Lower: " << *it << std::endl;
+    Assert(d_equalityEngine.hasTerm(*it));
+    Node n = d_equalityEngine.getRepresentative(*it);
+    // Node n = (*it);
+    // if(!d_equalityEngine.hasTerm(n)) {
+    //   Trace("sets-cardlower") << "[sets-cardlower]   not in EE" << std::endl;
+    //   continue;
+    // }
+    // Assert(n.getKind() == kind::EMPTYSET || leaves.find(n) != leaves.end()); // ????
     // if(n != *it) continue;
     const CDTNodeList* l = d_termInfoManager->getMembers(n);
     std::set<TNode> elems;
@@ -2927,7 +2958,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     }
     if(elems.size() == 0) continue;
     NodeBuilder<> nb(kind::OR);
-    nb << ( nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, n)) );
+    nb << ( nm->mkNode(kind::LEQ, nm->mkConst(Rational(elems.size())), nm->mkNode(kind::CARD, *it)) );
     if(elems.size() > 1) {
       for(typeof(elems.begin()) e1_it = elems.begin(); e1_it != elems.end(); ++e1_it) {
         for(typeof(elems.begin()) e2_it = elems.begin(); e2_it != elems.end(); ++e2_it) {
@@ -2937,14 +2968,14 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
       }
     }
     for(typeof(elems.begin()) e_it = elems.begin(); e_it != elems.end(); ++e_it) {
-      nb << nm->mkNode(kind::NOT, nm->mkNode(kind::MEMBER, *e_it, n));
+      nb << nm->mkNode(kind::NOT, nm->mkNode(kind::MEMBER, *e_it, *it));
     }
     Node lem = Node(nb);
-    if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
-      Trace("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
-      lemma(lem, SETS_LEMMA_GRAPH);
-      d_cardLowerLemmaCache.insert(lem);
-    }
+    // if(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end()) {
+    Trace("sets-card") << "[sets-card] Card Lower: " << lem << std::endl;
+    lemma(lem, SETS_LEMMA_GRAPH);
+    // d_cardLowerLemmaCache.insert(lem);
+    // }
   }  
 }
 
