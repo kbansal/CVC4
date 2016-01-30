@@ -2679,42 +2679,6 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
     Debug("sets-relterms") << "\n";
   }
 
-  // Guess leaf nodes being empty or non-empty
-  leaves.clear();
-  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
-    TNode v = *it;
-    if(d_E.find(v) == d_E.end()) {
-      leaves.insert(v);
-    }
-  }
-  d_statistics.d_numLeaves.setData(leaves.size());
-  d_statistics.d_numLeavesMax.maxAssign(leaves.size());
-  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
-    bool generateLemma = true;
-    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType((*it).getType())));
-    if(d_equalityEngine.hasTerm(*it)) {
-      Node n = d_equalityEngine.getRepresentative(*it);
-      if(n.getKind() == kind::EMPTYSET) continue;
-      if(d_termInfoManager->getMembers(n)->size() > 0) continue;
-      if(!d_equalityEngine.hasTerm(emptySet)) {
-        d_equalityEngine.addTerm(emptySet);
-      }
-      if(d_equalityEngine.areDisequal(n, emptySet, false)) {
-        generateLemma = false;
-      }
-    }
-    if(generateLemma) {
-      Node lem = nm->mkNode(kind::EQUAL, (*it), emptySet);
-      lem = nm->mkNode(kind::OR, lem, nm->mkNode(kind::NOT, lem));
-      //Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
-      d_cardLowerLemmaCache.insert(lem);
-      lemma(lem, SETS_LEMMA_GRAPH);
-    }
-  }
-  if(d_newLemmaGenerated) {
-    return;
-  }
-
   // Introduce lemma
   for(typeof(d_cardTerms.begin()) it = d_cardTerms.begin();
       it != d_cardTerms.end(); ++it) {
@@ -2900,6 +2864,44 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
   d_statistics.d_numLeavesMax.maxAssign(leaves.size());
 
   Assert(!d_newLemmaGenerated);
+
+  // Guess leaf nodes being empty or non-empty
+  leaves.clear();
+  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+    TNode v = *it;
+    if(d_E.find(v) == d_E.end()) {
+      leaves.insert(v);
+    }
+  }
+  d_statistics.d_numLeaves.setData(leaves.size());
+  d_statistics.d_numLeavesMax.maxAssign(leaves.size());
+  for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
+    bool generateLemma = true;
+    Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType((*it).getType())));
+    if(d_equalityEngine.hasTerm(*it)) {
+      Node n = d_equalityEngine.getRepresentative(*it);
+      if(n.getKind() == kind::EMPTYSET) continue;
+      if(d_termInfoManager->getMembers(n)->size() > 0) continue;
+      if(!d_equalityEngine.hasTerm(emptySet)) {
+        d_equalityEngine.addTerm(emptySet);
+      }
+      if(d_equalityEngine.areDisequal(n, emptySet, false)) {
+        generateLemma = false;
+      }
+    }
+    if(generateLemma) {
+      Node n = nm->mkNode(kind::EQUAL, (*it), emptySet);
+      Node lem = nm->mkNode(kind::OR, n, nm->mkNode(kind::NOT, n));
+      //Assert(d_cardLowerLemmaCache.find(lem) == d_cardLowerLemmaCache.end());
+      d_cardLowerLemmaCache.insert(lem);
+      lemma(lem, SETS_LEMMA_GRAPH);
+      n = d_external.d_valuation.ensureLiteral(n);
+      d_external.d_out->requirePhase(n, true);
+    }
+  }
+  if(d_newLemmaGenerated) {
+    return;
+  }
 
   // Elements being either equal or disequal
   Trace("sets-card") << "[sets-card] Processing elements equality/disequal to each other" << std::endl;
