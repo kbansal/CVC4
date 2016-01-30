@@ -76,6 +76,12 @@ private:
     TimerStat d_getModelValueTime;
     IntStat d_memberLemmas;
     IntStat d_disequalityLemmas;
+    IntStat d_numVertices;
+    IntStat d_numVerticesMax;
+    IntStat d_numMergeEq1or2;
+    IntStat d_numMergeEq3;
+    IntStat d_numLeaves;
+    IntStat d_numLeavesMax;
 
     Statistics();
     ~Statistics();
@@ -150,6 +156,25 @@ private:
   };
   TermInfoManager* d_termInfoManager;
 
+  /******
+   * Card Vars :
+   *
+   * mapping from set terms to correpsonding cardinality variable
+   * 
+   * in the ::check function, when we get one of those cardinality
+   * variables to be assigned to 0, we will assert in equality engine
+   * to be equal to empty set.
+   *
+   * if required, we will add more filters so it doesn't leak to
+   * outside world
+   */
+  Node getCardVar(TNode n);
+  Node newCardVar(TNode n);
+  bool isCardVar(TNode n);
+  typedef std::hash_map <Node, Node, NodeHashFunction> NodeNodeHashMap;
+  NodeNodeHashMap d_setTermToCardVar;
+  NodeNodeHashMap d_cardVarToSetTerm;
+  
   /** Assertions and helper functions */
   bool present(TNode atom);
   bool holds(TNode lit) {
@@ -237,16 +262,22 @@ private:
   void add_edges(TNode source, const std::vector<TNode>& dests);
   void add_node(TNode vertex);
   void merge_nodes(std::set<TNode> a, std::set<TNode> b, TNode reason);
-  std::set<TNode> get_leaves(TNode vertex);
-  std::set<TNode> get_leaves(TNode vertex1, TNode vertex2);
+  std::set<TNode> get_leaves(Node vertex);
+  std::set<TNode> get_leaves(Node vertex1, Node vertex2);
   std::set<TNode> non_empty(std::set<TNode> vertices);
   void print_graph();
   context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;
-
-  Node normalize(TNode);
+  context::CDList<Node> d_allSetEqualitiesSoFar;
+  Node eqSoFar();
 
   std::set<TNode> getNonEmptyLeaves(TNode);
   CDNodeSet d_lemmasGenerated;
+  bool d_newLemmaGenerated;
+
+
+  /** relevant terms */
+  void doCustomRegistration(TNode atom, bool polarity);
+  CDNodeSet d_relTerms;
 };/* class TheorySetsPrivate */
 
 
