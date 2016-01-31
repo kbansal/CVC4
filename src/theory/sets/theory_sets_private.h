@@ -130,7 +130,12 @@ private:
     SETS_LEMMA_GRAPH,
     SETS_LEMMA_OTHER
   };
-  void lemma(Node n, SetsLemmaTag t);
+
+  /**
+   * returns true if a lemmas was generated
+   * returns false otherwise (found in cache)
+   */
+  bool lemma(Node n, SetsLemmaTag t);
 
   class TermInfoManager {
     TheorySetsPrivate& d_theory;
@@ -278,6 +283,8 @@ private:
   std::set<TNode> getNonEmptyLeaves(TNode);
   CDNodeSet d_lemmasGenerated;
   bool d_newLemmaGenerated;
+
+  void guessLeavesEmptyLemmas();
 
 
   /** relevant terms */

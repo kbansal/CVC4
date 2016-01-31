@@ -20,4 +20,9 @@ option setsPropFull --sets-prop-full bool :default true
 option setsAggRewrite --sets-agg-rewrite bool :default false
  aggressive sets rewriting
 
+option setsGuessEmpty --sets-guess-empty int :default 1
+ when to guess leaf nodes being empty
+
+option setsSlowLemmas --sets-slow-lemmas bool :default false
+
 endmodule
