@@ -2462,11 +2462,6 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
 
   NodeManager* nm = NodeManager::currentNM();
 
-  Trace("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
-                            << std::endl;
-  print_graph();
-  Trace("sets-graph") << std::endl;
-  
   // do non-empty reasoning stuff
   std::vector<TNode> leaves1_nonempty, leaves2_nonempty;
   BOOST_FOREACH(TNode l, leaves1) {
@@ -2486,6 +2481,11 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     }
   }
         
+  Trace("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
+                            << std::endl;
+  print_graph();
+  Trace("sets-graph") << std::endl;
+  
   std::set<TNode> leaves3, leaves4;
   std::set_difference(leaves1_nonempty.begin(), leaves1_nonempty.end(),
                       leaves2_nonempty.begin(), leaves2_nonempty.end(),
@@ -2646,6 +2646,9 @@ void TheorySetsPrivate::guessLeavesEmptyLemmas() {
       leaves.insert(v);
     }
   }
+  d_statistics.d_numLeaves.setData(leaves.size());
+  d_statistics.d_numLeavesMax.maxAssign(leaves.size());
+
   int
     numLeaves = leaves.size(),
     numLemmasGenerated = 0,
@@ -2653,11 +2656,11 @@ void TheorySetsPrivate::guessLeavesEmptyLemmas() {
     numLeavesIsNonEmpty = 0,
     numLeavesCurrentlyNonEmpty = 0,
     numLemmaAlreadyExisted = 0;
-  d_statistics.d_numLeaves.setData(leaves.size());
-  d_statistics.d_numLeavesMax.maxAssign(leaves.size());
+
   for(typeof(leaves.begin()) it = leaves.begin(); it != leaves.end(); ++it) {
     bool generateLemma = true;
     Node emptySet = nm->mkConst<EmptySet>(EmptySet(nm->toType((*it).getType())));
+
     if(d_equalityEngine.hasTerm(*it)) {
       Node n = d_equalityEngine.getRepresentative(*it);
       if(n.getKind() == kind::EMPTYSET) {
@@ -2676,6 +2679,7 @@ void TheorySetsPrivate::guessLeavesEmptyLemmas() {
         generateLemma = false;
       }
     }
+
     if(generateLemma) {
       Node n = nm->mkNode(kind::EQUAL, (*it), emptySet);
       Node lem = nm->mkNode(kind::OR, n, nm->mkNode(kind::NOT, n));
@@ -2689,6 +2693,7 @@ void TheorySetsPrivate::guessLeavesEmptyLemmas() {
       n = d_external.d_valuation.ensureLiteral(n);
       d_external.d_out->requirePhase(n, true);
     }
+
   }
   Trace("sets-guess-empty")
     << "[sets-guess-empty] numLeaves                      = " << numLeaves << std::endl
@@ -2737,13 +2742,13 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
   //   }
   // }
   
-  if(Debug.isOn("sets-relterms")) {
-    Debug("sets-relterms") << "[sets-relterms] ";
+  if(Trace.isOn("sets-relterms")) {
+    Trace("sets-relterms") << "[sets-relterms] ";
     for(typeof(d_relTerms.begin()) it = d_relTerms.begin();
         it != d_relTerms.end(); ++it ) {
-      Debug("sets-relterms") << (*it) << ", ";
+      Trace("sets-relterms") << (*it) << ", ";
     }
-    Debug("sets-relterms") << "\n";
+    Trace("sets-relterms") << "\n";
   }
 
   if(options::setsGuessEmpty() == 0) {
