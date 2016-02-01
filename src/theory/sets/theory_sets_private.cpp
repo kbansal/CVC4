@@ -2837,7 +2837,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         if(d_E.find(n[0]) != d_E.end()) {
           // do a merge of current leaves of d_E with 
           // sNT sMT tMs
-          Debug("sets-card") << "[sets-card] Already found in the graph, merging " << n[0] << std::endl;
+          Trace("sets-card") << "[sets-card] Already found in the graph, merging " << n[0] << std::endl;
           merge_nodes(get_leaves(n[0]), get_leaves(sMt, sNt, tMs), eqSoFar());
         } else {
           add_node(n[0]);
@@ -2870,7 +2870,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
           continue;
         }
         
-        Debug("sets-card") << "[sets-card] Already found in the graph, merging " << s << std::endl;
+        Trace("sets-card") << "[sets-card] Already found in the graph, merging " << s << std::endl;
         merge_nodes(get_leaves(s), get_leaves(sMt, sNt), eqSoFar());
       }
 
@@ -2890,7 +2890,7 @@ void TheorySetsPrivate::processCard2(Theory::Effort level) {
         // Assert( find(d_E[t].get().begin(), d_E[t].get().end(), tMs) == d_E[t].get().end() );
         // Assert( find(d_E[t].get().begin(), d_E[t].get().end(), sNt) == d_E[t].get().end() );
         
-        Debug("sets-card") << "[sets-card] Already found in the graph, merging " << t << std::endl;
+        Trace("sets-card") << "[sets-card] Already found in the graph, merging " << t << std::endl;
         merge_nodes(get_leaves(t), get_leaves(sNt, tMs), eqSoFar());
       }
 
