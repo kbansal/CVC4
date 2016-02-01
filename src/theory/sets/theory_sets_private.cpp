@@ -2457,6 +2457,10 @@ std::set<TNode> TheorySetsPrivate::get_leaves(Node vertex1, Node vertex2, Node v
   return t;
 }
 
+void TheorySetsPrivate::eqemptySoFar() {
+
+}
+  
 void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, Node reason) {
   CodeTimer codeTimer(d_statistics.d_mergeTime);
 
@@ -2469,7 +2473,7 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     if(d_equalityEngine.getRepresentative(l).getKind() != kind::EMPTYSET) {
       leaves1_nonempty.push_back(l);
     } else {
-      reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
+      // reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
     }
   }
   BOOST_FOREACH(TNode l, leaves2) {
@@ -2477,9 +2481,12 @@ void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> lea
     if(d_equalityEngine.getRepresentative(l).getKind() != kind::EMPTYSET) {
       leaves2_nonempty.push_back(l);
     } else {
-      reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
+      // reason = nm->mkNode(kind::AND, reason, EQUAL(l, emptySet));
     }
   }
+
+  // last minute stuff
+  reason = nm->mkNode(kind::AND, reason, eqemptySoFar());
         
   Trace("sets-graph-merge") << "[sets-graph-merge] merge_nodes(..,.., " << reason << ")"
                             << std::endl;
