@@ -279,6 +279,7 @@ private:
   context::CDQueue < std::pair<TNode, TNode> > d_graphMergesPending;
   context::CDList<Node> d_allSetEqualitiesSoFar;
   Node eqSoFar();
+  Node eqemptySoFar();
 
   std::set<TNode> getNonEmptyLeaves(TNode);
   CDNodeSet d_lemmasGenerated;

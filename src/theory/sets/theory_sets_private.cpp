@@ -960,29 +960,31 @@ void TheorySetsPrivate::collectModelInfo(TheoryModel* m, bool fullModel)
       // slk = slack
       cur.push_back(nm->mkSkolem("slk_",  elementType));
     }
-    Debug("sets-model") << "[sets-model] Created " << cardValInt-numElems
-                        << " slack variables for " << setterm << std::endl;
+    Trace("sets-model-card") << "[sets-model-card] cardValInt = " << cardValInt << std::endl
+			     << "                  numElems = " << numElems << std::endl;
+    Trace("sets-model-card") << "[sets-model-card] Created " << cardValInt-numElems
+			     << " slack variables for " << setterm << std::endl;
   }
 
   // assign representatives to equivalence class
   BOOST_FOREACH( TNode setterm, settermsModEq ) {
     Elements elements = getElements(setterm, settermElementsMap);
-    if(edgesFd.find(setterm) != edgesFd.end()) {
-      Debug("sets-model") << "[sets-model] " << setterm << " (before slacks): " << elements.size() << std::endl;
-      std::set<TNode> leafChildren = getLeaves(edgesFd, setterm);
+    if(d_E.find(setterm) != d_E.end()) {
+      Trace("sets-model-card") << "[sets-model-card] " << setterm << " (before slacks): " << elements.size() << std::endl;
+      std::set<TNode> leafChildren = get_leaves(setterm);
       BOOST_FOREACH( TNode leafChild, leafChildren ) {
         if(leaves.find(leafChild) == leaves.end()) { continue; }
         BOOST_FOREACH( TNode slackVar, slackElements[leafChild] ) {
           elements.insert(slackVar);
         }
       }
-      Debug("sets-model") << "[sets-model] " << setterm << " (after slacks): " << elements.size() << std::endl;
-    } else if(leaves.find(setterm) != leaves.end()) {
-      Debug("sets-model") << "[sets-model] " << setterm << " (before slacks): " << elements.size() << std::endl;
+      Trace("sets-model-card") << "[sets-model-card] " << setterm << " (after slacks): " << elements.size() << std::endl;
+    } else if(d_V.find(setterm) != d_V.end()) {
+      Trace("sets-model-card") << "[sets-model-card] " << setterm << " (before slacks): " << elements.size() << std::endl;
       BOOST_FOREACH( TNode slackVar, slackElements[setterm] ) {
         elements.insert(slackVar);
       }
-      Debug("sets-model") << "[sets-model] " << setterm << " (after slacks): " << elements.size() << std::endl;
+      Trace("sets-model-card") << "[sets-model-card] " << setterm << " (after slacks): " << elements.size() << std::endl;
     }
     Node shape = elementsToShape(elements, setterm.getType());
     shape = theory::Rewriter::rewrite(shape);
@@ -2457,9 +2459,26 @@ std::set<TNode> TheorySetsPrivate::get_leaves(Node vertex1, Node vertex2, Node v
   return t;
 }
 
-void TheorySetsPrivate::eqemptySoFar() {
+Node TheorySetsPrivate::eqemptySoFar() {
+  std::vector<Node> V;
 
-}
+  for(typeof(d_V.begin()) it = d_V.begin(); it != d_V.end(); ++it) {
+    Node rep = d_equalityEngine.getRepresentative(*it);
+    if(rep.getKind() == kind::EMPTYSET) {
+      V.push_back(EQUAL(rep, (*it)));
+    }
+  }
+
+  if(V.size() == 0) {
+    return d_trueNode;
+  } else if(V.size() == 1) {
+    return V[0];
+  } else {
+    NodeManager* nm = NodeManager::currentNM();
+    return nm->mkNode(kind::AND, V);
+  }
+}   
+
   
 void TheorySetsPrivate::merge_nodes(std::set<TNode> leaves1, std::set<TNode> leaves2, Node reason) {
   CodeTimer codeTimer(d_statistics.d_mergeTime);
